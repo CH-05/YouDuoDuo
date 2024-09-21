@@ -1,8 +1,8 @@
-<script setup>
+<script setup lang="ts">
 </script>
 
 <template>
-<div>
-
-</div>
+  <div>
+    这是主页
+  </div>
 </template>
