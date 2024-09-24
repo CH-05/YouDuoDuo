@@ -57,11 +57,11 @@ const submitForm =async () => {
     const redirect = route.query.redirect
     router.push({path: redirect || '/login'})
     //从仓库中拿数据
-    ElMessage({type: 'success', message: "登录成功"})
+    ElMessage({type: 'success', message: "注册成功,请登录"})
     loading.value = false
   }catch (e) {
     ElMessage({
-      message: "登录失败，请检查用户名和密码是否输入正确",
+      message: "注册失败，该用户名已被占用",
       type: 'error'
     })
     loading.value = false

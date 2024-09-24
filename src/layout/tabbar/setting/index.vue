@@ -1,42 +1,44 @@
 <template>
   <el-button
-    size="small"
-    circle
-    icon="Refresh"
-    @click="updateRefresh"
+      size="small"
+      circle
+      icon="Refresh"
+      @click="updateRefresh"
   ></el-button>
   <el-button
-    size="small"
-    circle
-    icon="FullScreen"
-    @click="fullScreen"
+      size="small"
+      circle
+      icon="FullScreen"
+      @click="fullScreen"
   ></el-button>
-  <el-popover placement="bottom" title="主题设置" :width="260" trigger="click">
+  <el-popover placement="bottom" title="主题设置" :width="260" :visible="isVisible">
     <template #reference>
-      <el-button size="small" circle icon="Setting"></el-button>
+      <el-button @click="isVisible=!isVisible" size="small" circle icon="Setting"></el-button>
     </template>
     <el-form>
       <el-form-item label="主题颜色：">
         <el-color-picker
-          v-model="color"
-          show-alpha
-          :predefine="predefineColors"
-          size="small"
-          @change="pickerChange"
+            v-model="color"
+            show-alpha
+            :predefine="predefineColors"
+            size="small"
+            @change="pickerChange"
         />
       </el-form-item>
       <el-form-item label="暗黑模式：">
-        <el-switch size="small" v-model="dark" @change="switchChange" />
+        <el-switch size="small" v-model="dark" @change="switchChange"/>
       </el-form-item>
     </el-form>
   </el-popover>
 
-  <img class="avatar" :src="userStore.avatar? userStore.avatar:'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'" alt="" />
+  <img class="avatar"
+       :src="userStore.avatar"
+       alt=""/>
   <el-dropdown>
     <span class="el-dropdown-link">
       {{ userStore.username }}
       <el-icon class="el-icon--right">
-        <arrow-down />
+        <arrow-down/>
       </el-icon>
     </span>
     <template #dropdown>
@@ -48,8 +50,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import {ref} from 'vue'
+import {useRouter, useRoute} from 'vue-router'
 import useUserStore from '@/stores/modules/user'
 import useLayoutSettingStore from '@/stores/modules/setting'
 
@@ -57,6 +59,7 @@ const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const layoutSettingStore = useLayoutSettingStore()
+const isVisible = ref(false)
 
 // 刷新按钮点击的回调
 const updateRefresh = () => {
@@ -80,7 +83,7 @@ const fullScreen = () => {
 // 退出登录
 const logout = async () => {
   await userStore.userLogout()
-  router.push({ path: '/login', query: { redirect: route.path } })
+  router.push({path: '/login', query: {redirect: route.path}})
 }
 
 // 主题颜色
@@ -109,6 +112,7 @@ const pickerChange = () => {
   html.style.setProperty('--el-color-warning', color.value)
   html.style.setProperty('--el-color-danger', color.value)
   html.style.setProperty('--el-color-info', color.value)
+  isVisible.value = false
 }
 
 // 暗黑模式

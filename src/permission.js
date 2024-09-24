@@ -23,11 +23,10 @@ router.beforeEach(async (to, _from, next) => {
   const token = userStore.token
   const username = userStore.username
   if (token) {
-    // 用户登录
-    if (to.path === '/login') {
+    // 用户登录或注册
+    if (to.path === '/login' || to.path === '/register') {
       next({ path: '/' })
     } else {
-      console.log(username);
       // 判断是否有用户信息
       if (username) {
         next()
@@ -44,7 +43,7 @@ router.beforeEach(async (to, _from, next) => {
     }
   } else {
     // 用户未登录
-    if (to.path === '/login') {
+    if (to.path === '/login' || to.path === '/register') {
       next()
     } else {
       next({ path: '/login', query: { redirect: to.path } })

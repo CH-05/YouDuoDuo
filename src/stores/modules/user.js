@@ -42,6 +42,7 @@ const useUserStore = defineStore('user', {
     //注册
     async userRegister(data) {
       const result = await registerAPI(data)
+      console.log(result);
       if (result.code === 200) {
         return 'ok'
       }else{
