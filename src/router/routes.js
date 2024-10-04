@@ -166,7 +166,7 @@ export const anyRoute = [
   {
     path: '/:pathMatch(.*)*',
     redirect: '/404',
-    name: 'any',
+    // name: 'any',
     meta: {
       title: '任意路由',
       hidden: true,

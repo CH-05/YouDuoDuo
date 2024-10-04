@@ -5,7 +5,7 @@ import { createSvgIconsPlugin } from 'vite-plugin-svg-icons'
 import path from 'path'
 
 // https://vitejs.dev/config/
-export default defineConfig(({ command, mode }) => {
+export default defineConfig(({ mode }) => {
   // 获取各种环境下对应的变量 (有哪些变量，可以去环境变量的文件里面查看)
   // loadEnv(当前所处的开发环境, 环境文件的父级路径)
   // process.cwd()：就是项目根目录的路径
@@ -40,6 +40,7 @@ export default defineConfig(({ command, mode }) => {
     },
     // 代理
     server: {
+      port:5177,
       proxy: {
         [env.VITE_APP_BASE_API]: {
           target: env.VITE_SERVE,

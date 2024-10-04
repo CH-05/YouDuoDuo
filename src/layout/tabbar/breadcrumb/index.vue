@@ -1,21 +1,21 @@
 <template>
-  <el-icon class="icon" @click="changeIcon">
-    <component :is="layoutSettingStore.fold ? 'Expand' : 'Fold'"></component>
-  </el-icon>
-  <el-breadcrumb separator-icon="ArrowRight">
-    <template v-for="item in route.matched" :key="item.path">
-      <el-breadcrumb-item
-        v-show="item.meta.title"
-        :to="item.path"
-        class="breadcrumb-item"
-      >
-        <el-icon>
-          <component :is="item.meta.icon"></component>
-        </el-icon>
-        <span class="title">{{ item.meta.title }}</span>
-      </el-breadcrumb-item>
-    </template>
-  </el-breadcrumb>
+    <el-icon class="icon" @click="changeIcon">
+      <component :is="layoutSettingStore.fold ? 'Expand' : 'Fold'"></component>
+    </el-icon>
+    <el-breadcrumb separator-icon="ArrowRight">
+      <template v-for="item in route.matched" :key="item.path">
+        <el-breadcrumb-item
+            v-show="item.meta.title"
+            :to="item.path"
+            class="breadcrumb-item"
+        >
+          <el-icon>
+            <component v-if="item.meta.icon" :is="item.meta.icon"></component>
+          </el-icon>
+          <span class="title">{{ item.meta.title }}</span>
+        </el-breadcrumb-item>
+      </template>
+    </el-breadcrumb>
 </template>
 
 <script setup>
