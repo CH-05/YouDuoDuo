@@ -25,6 +25,7 @@ const useUserStore = defineStore('user', {
       menuRoutes: [],
       username: '',
       avatar: '',
+      role: ''
     }
   },
   actions: {
@@ -55,6 +56,7 @@ const useUserStore = defineStore('user', {
       if (result.code === 200) {
         this.username = result.data.username
         this.avatar = result.data.avatar
+        this.role = result.data.role
         const userAsyncRoute = filterAsyncRoute(
           cloneDeep(asyncRoute),
           result.data.routes,

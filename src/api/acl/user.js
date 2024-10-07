@@ -27,9 +27,18 @@ export const removeUsersAPI = (data) =>{
 }
 
 //添加新用户
-export const addNewUserAPI = (data) => {
+export const addOrUpdateNewUserAPI = (data) => {
     return request({
-        url: '/addNewUser',
+        url: '/addOrUpdateNewUser',
+        method: 'post',
+        data
+    })
+}
+
+//修改用户权限
+export const setUserRoleAPI = (data) => {
+    return request({
+        url: '/setUserRole',
         method: 'post',
         data
     })
