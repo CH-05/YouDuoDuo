@@ -1,5 +1,5 @@
 <script setup>
-import {nextTick, onMounted, reactive, ref} from "vue";
+import {nextTick, onMounted, reactive, ref, shallowReactive, toRaw} from "vue";
 import {addOrUpdateNewUserAPI, getUserListAPI, removeUserAPI, removeUsersAPI, setUserRoleAPI} from "@/api/acl/user.js";
 import {ElMessage} from "element-plus";
 import useUserStore from "@/stores/modules/user.js";
@@ -23,11 +23,14 @@ const roleShow = ref(false)
 const userStore = useUserStore()
 
 //用户基本信息
-const userInfo = reactive({
+const userInfo = shallowReactive({
   user_id: '',
   username: '',
   password: '',
-  role: '',
+  role: {
+    id: null,
+    name: ''
+  },
   created_at: ''
 })
 
@@ -61,7 +64,10 @@ const reset = async () => {
 const getUserList = async () => {
   let res = await getUserListAPI(pageNo.value, pageSize.value, keyword.value);
   if (res.code === 200) {
-    tableData.value = res.data.result
+    tableData.value = res.data.result.map((item) => {
+      item.role = JSON.parse(item.role)
+      return item
+    })
     total.value = res.data.total
   } else if (res.code === 501) {
     ElMessage({
@@ -161,30 +167,35 @@ const save = async () => {
     })
   }
 }
-
-const checkAll = ref(false)
-const isIndeterminate = ref(false)
 //权限管理
-const allRole = reactive([{
+const allRole = reactive([
+  {
+    id: 0,
+    name: "客户"
+  },
+    {
   id: 1,
-  role: '员工'
+      name: '员工'
 }, {
   id: 2,
-  role: '管理员'
+    name: '管理员'
 }, {
   id: 3,
-  role: '超级管理员'
+    name: '超级管理员'
 }])
-const userRole = ref()
+let userRole = reactive({
+  id: null,
+  name: ''
+})
 
 //分配角色按钮
 const clickRoleBtn = async (row) => {
   Object.assign(userInfo, row)
-  const currentRole = userStore.role;
-  const role = userInfo.role;
-  if (currentRole.length > role.length) {
+  const currentRoleId = userStore.role.id;
+  const roleId = userInfo.role.id;
+  if (currentRoleId > roleId) {
     roleShow.value = true
-    userRole.value = role
+    userRole = userInfo.role;
   }else{
     ElMessage({
       type: "warning",
@@ -195,9 +206,8 @@ const clickRoleBtn = async (row) => {
 
 //判断该用户有没有权限修改此用户的权限
 const hasPermission = (item) => {
-  const role = userStore.role
-  console.log(role.length);
-  return role.length <= item.role.length;
+  const roleId = userStore.role.id
+  return roleId <= item.id;
 }
 
 //取消用户权限分配
@@ -207,9 +217,10 @@ const closeRole = () => {
 //用户修改权限分配
 const setRole = async () => {
   const user_id = userInfo.user_id
-  const role = userRole.value
+  const role = userRole
+  const roleName = toRaw(userInfo.role)
   //稍微验证一下是否更改了权限，没更改就不发请求
-  if (role !== userInfo.role){
+  if (role.name !== roleName){ //TODO:bug用户修改后页面要刷新才会显示已选权限
     const res = await setUserRoleAPI({user_id,role})
     if (res.code === 200){
       ElMessage({
@@ -249,7 +260,9 @@ const setRole = async () => {
     <el-card style="margin: 15px 0">
       <el-button type="primary" @click="addUser">添加</el-button>
       <el-button
+          v-if="selectId"
           type="danger"
+          :disabled="selectId.length === 0"
           @click="userBatchDelete"
       >
         批量删除
@@ -263,7 +276,7 @@ const setRole = async () => {
         <el-table-column type="selection"></el-table-column>
         <el-table-column label="id" width="80" prop="user_id"></el-table-column>
         <el-table-column label="用户姓名" prop="username"></el-table-column>
-        <el-table-column label="用户角色" prop="role"></el-table-column>
+        <el-table-column label="用户角色" prop="role.name"></el-table-column>
         <el-table-column label="创建时间" prop="created_at"></el-table-column>
         <el-table-column label="更新时间" prop="updated_at"></el-table-column>
         <el-table-column label="操作" width="270">
@@ -348,8 +361,8 @@ const setRole = async () => {
             />
           </el-form-item>
           <el-form-item label="角色列表:">
-            <el-radio-group v-model="userRole">
-              <el-radio v-for="item in allRole" :value="item.role" :key="item.id" :disabled="hasPermission(item)">{{ item.role }}</el-radio>
+            <el-radio-group v-model="userRole.name">
+              <el-radio v-for="item in allRole" :value="item.name" :key="item.id" :disabled="hasPermission(item)">{{ item.name }}</el-radio>
             </el-radio-group>
           </el-form-item>
         </el-form>

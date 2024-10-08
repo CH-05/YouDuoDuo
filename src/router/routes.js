@@ -111,7 +111,7 @@ export const asyncRoute = [
     component: () => import('@/layout/index.vue'),
     name: 'Product', // 命名路由(做路由权限用的)
     meta: {
-      title: '商品管理',
+      title: '粮油管理',
       hidden: false,
       icon: 'Goods',
     },

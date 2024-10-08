@@ -25,7 +25,10 @@ const useUserStore = defineStore('user', {
       menuRoutes: [],
       username: '',
       avatar: '',
-      role: ''
+      role: {
+        id: null,
+        name: ''
+      }
     }
   },
   actions: {
