@@ -1,5 +1,5 @@
 <script setup>
-import {nextTick, onMounted, reactive, ref, shallowReactive, toRaw} from "vue";
+import {nextTick, onMounted, reactive, ref, shallowReactive, toRaw, watch, watchEffect} from "vue";
 import {addOrUpdateNewUserAPI, getUserListAPI, removeUserAPI, removeUsersAPI, setUserRoleAPI} from "@/api/acl/user.js";
 import {ElMessage} from "element-plus";
 import useUserStore from "@/stores/modules/user.js";
@@ -23,7 +23,7 @@ const roleShow = ref(false)
 const userStore = useUserStore()
 
 //用户基本信息
-const userInfo = shallowReactive({
+const userInfo = reactive({
   user_id: '',
   username: '',
   password: '',
@@ -173,30 +173,33 @@ const allRole = reactive([
     id: 0,
     name: "客户"
   },
-    {
-  id: 1,
-      name: '员工'
-}, {
-  id: 2,
+  {
+    id: 1,
+    name: '员工'
+  }, {
+    id: 2,
     name: '管理员'
-}, {
-  id: 3,
+  }, {
+    id: 3,
     name: '超级管理员'
-}])
-let userRole = reactive({
-  id: null,
+  }])
+let userRole = ref({
+  id: 0,
   name: ''
 })
 
 //分配角色按钮
 const clickRoleBtn = async (row) => {
   Object.assign(userInfo, row)
+  console.log(userInfo);
   const currentRoleId = userStore.role.id;
   const roleId = userInfo.role.id;
   if (currentRoleId > roleId) {
     roleShow.value = true
-    userRole = userInfo.role;
-  }else{
+    userRole.value.id = userInfo.role.id;
+    userRole.value.name = userInfo.role.name
+    console.log(userRole.value);
+  } else {
     ElMessage({
       type: "warning",
       message: "你无权分配同级别以及更高人的权限"
@@ -214,15 +217,17 @@ const hasPermission = (item) => {
 const closeRole = () => {
   roleShow.value = false
 }
+//改变权限分配时
+const changePermission = (item) => {
+  userRole.value.name = item.name
+}
 //用户修改权限分配
 const setRole = async () => {
   const user_id = userInfo.user_id
-  const role = userRole
-  const roleName = toRaw(userInfo.role)
-  //稍微验证一下是否更改了权限，没更改就不发请求
-  if (role.name !== roleName){ //TODO:bug用户修改后页面要刷新才会显示已选权限
-    const res = await setUserRoleAPI({user_id,role})
-    if (res.code === 200){
+  const roleId = userRole.value.id
+  if (roleId !== userInfo.role.id) {
+    const res =await setUserRoleAPI({user_id,role:userRole.value})
+    if (res.code === 200) {
       ElMessage({
         type: 'success',
         message: res.message
@@ -231,7 +236,7 @@ const setRole = async () => {
       await getUserList()
     }
     console.log(res);
-  }else{
+  } else {
     ElMessage({
       type: 'info',
       message: '未执行任何操作'
@@ -361,24 +366,26 @@ const setRole = async () => {
             />
           </el-form-item>
           <el-form-item label="角色列表:">
-            <el-radio-group v-model="userRole.name">
-              <el-radio v-for="item in allRole" :value="item.name" :key="item.id" :disabled="hasPermission(item)">{{ item.name }}</el-radio>
+            <el-radio-group v-model="userRole.id">
+              <el-radio v-for="item in allRole" :value="item.id" @change="changePermission(item)" :key="item.id" :disabled="hasPermission(item)">
+                {{ item.name }}
+              </el-radio>
             </el-radio-group>
           </el-form-item>
         </el-form>
       </template>
-            <template #footer>
-              <div style="flex: auto">
-                <el-button @click="closeRole">取消</el-button>
-                <el-button
-                    type="primary"
-                    :disabled="!userRole"
-                    @click="setRole"
-                >
-                  确定
-                </el-button>
-              </div>
-            </template>
+      <template #footer>
+        <div style="flex: auto">
+          <el-button @click="closeRole">取消</el-button>
+          <el-button
+              type="primary"
+              :disabled="!userRole"
+              @click="setRole"
+          >
+            确定
+          </el-button>
+        </div>
+      </template>
     </el-drawer>
   </div>
 
