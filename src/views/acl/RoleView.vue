@@ -1,9 +1,10 @@
 <script setup>
-import {nextTick, onMounted, reactive, ref, shallowReactive, toRaw, watch, watchEffect} from "vue";
-import {addOrUpdateNewUserAPI, removeUserAPI, removeUsersAPI, setUserRoleAPI} from "@/api/acl/user.js";
+import {onMounted, reactive, ref} from "vue";
+import {addUserPermissionAPI, removeUserAPI} from "@/api/acl/user.js";
 import {ElMessage} from "element-plus";
 import useUserStore from "@/stores/modules/user.js";
 import {getRoleListAPI, reqPermissionMenuAPI} from "@/api/acl/role.js";
+import moment from "moment";
 
 //当前页
 const pageNo = ref(1);
@@ -22,10 +23,16 @@ const formRef = ref();
 const roleShow = ref(false)
 //从pinia中拿到user数据
 const userStore = useUserStore()
-const menuData =ref([])
+//定义菜单数据
+const menuData = ref([])
+//定义树形控件中所有选中的id
+const selectArr = ref([])
+//定义用户点击选中的树形控件的权限id数组
+const treeRef = ref([])
 
 //用户基本信息
 const roleParams = reactive({
+  user_id: '',
   id: '',
   name: '',
 })
@@ -69,6 +76,8 @@ const getRoleList = async () => {
     if (res.code === 200) {
       tableData.value = res.data.result.map((item) => {
         item.role = JSON.parse(item.role)
+        item.created_at = moment(item.created_at).format("YYYY-MM-DD HH:mm:ss")
+        item.updated_at = moment(item.updated_at).format("YYYY-MM-DD HH:mm:ss")
         return item
       })
       total.value = res.data.total
@@ -125,13 +134,15 @@ const addPermission = async (row) => {
   const currentRoleId = userStore.role.id;
   const roleId = roleParams.id;
   //用户id
-  const user_id = row.user_id
+  roleParams.user_id = row.user_id
   if (currentRoleId > roleId) {
     drawerShow.value = true
     //获取当前点击用户拥有哪些权限
-    const res = await reqPermissionMenuAPI(user_id)
+    const res = await reqPermissionMenuAPI(roleParams.user_id)
+    console.log(res);
     if (res.code === 200) {
-
+      menuData.value = JSON.parse(res.data.routes)
+      selectArr.value = filterSelectArr(menuData.value, [])
     }
     userRole.value.id = roleParams.id;
     userRole.value.name = roleParams.name
@@ -142,6 +153,22 @@ const addPermission = async (row) => {
       message: "你无权分配同级别以及更高人的权限"
     })
   }
+}
+const defaultProps = {
+  children: 'children',
+  label: 'name',
+}
+//树形控件过滤哪些选项有被勾选上
+const filterSelectArr = (allData, initArr) => {
+  allData.forEach((item) => {
+    if (item.select && item.level === 3) {
+      initArr.push(item.id);
+    }
+    if (item.children && item.children.length > 0) {
+      filterSelectArr(item.children, initArr);
+    }
+  })
+  return initArr;
 }
 
 //判断该用户有没有权限修改此用户的权限
@@ -158,54 +185,61 @@ const closeRole = () => {
 const changePermission = (item) => {
   userRole.value.name = item.name
 }
-//用户修改权限分配
-const setRole = async () => {
+//用户修改权限分配确认
+const roleSave = async () => {
+  //拿到点击的用户id
   const user_id = roleParams.user_id
-  const roleId = userRole.value.id
-  if (roleId !== roleParams.role.id) {
-    const res = await setUserRoleAPI({user_id, role: userRole.value})
-    if (res.code === 200) {
-      ElMessage({
-        type: 'success',
-        message: res.message
-      })
-      roleShow.value = false;
-      await getRoleList()
-    }
-    console.log(res);
+  //拿到用户点击的树形控件中点击的权限permissionId
+  const arr = treeRef.value.getCheckedKeys()
+  const arr1 = treeRef.value.getHalfCheckedKeys()
+  const permissionId = arr.concat(arr1)
+  const res = await addUserPermissionAPI({user_id, permissionId})
+  if (res.code === 200) {
+    ElMessage({
+      type: 'success',
+      message: res.message
+    })
+    drawerShow.value = false;
+    setTimeout(() => {
+      window.location.reload()
+    }, 800)
   } else {
     ElMessage({
-      type: 'info',
-      message: '未执行任何操作'
+      type: 'warning',
+      message: res.message
     })
-    roleShow.value = false
   }
+}
+
+//用户取消修改其他人的权限
+const roleCancel = () => {
+  drawerShow.value = false
 }
 </script>
 
 <template>
   <div>
     <el-card style="height: 80px">
-      <el-form inline class="form">
+      <el-form class="form" inline>
         <el-form-item label="角色名称：">
-          <el-input placeholder="请输入角色名称" v-model="keyword"/>
+          <el-input v-model="keyword" placeholder="请输入角色名称"/>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="getRoleList" :disabled="!keyword">
+          <el-button :disabled="!keyword" type="primary" @click="getRoleList">
             搜索
           </el-button>
-          <el-button @click="reset" :disabled="!keyword">重置</el-button>
+          <el-button :disabled="!keyword" @click="reset">重置</el-button>
         </el-form-item>
       </el-form>
     </el-card>
     <el-card style="margin: 15px 0">
       <el-table
-          style="margin: 10px 0"
-          border
           :data="tableData"
+          border
+          style="margin: 10px 0"
           @selection-change="selectChange"
       >
-        <el-table-column label="id" width="80" prop="user_id"></el-table-column>
+        <el-table-column label="id" prop="user_id" width="80"></el-table-column>
         <el-table-column label="用户角色" prop="role.name"></el-table-column>
         <el-table-column label="创建时间" prop="created_at"></el-table-column>
         <el-table-column label="更新时间" prop="updated_at"></el-table-column>
@@ -236,10 +270,10 @@ const setRole = async () => {
       <el-pagination
           v-model:current-page="pageNo"
           v-model:page-size="pageSize"
-          :page-sizes="[5, 10, 15, 20]"
           :background="false"
-          layout="prev, pager, next, jumper, ->, sizes, total"
+          :page-sizes="[5, 10, 15, 20]"
           :total="total"
+          layout="prev, pager, next, jumper, ->, sizes, total"
           @size-change="getRoleList"
           @current-change="getRoleList"
       />
@@ -254,10 +288,11 @@ const setRole = async () => {
         <el-tree
             ref="treeRef"
             :data="menuData"
-            show-checkbox
-            node-key="id"
-            default-expand-all
+            :default-checked-keys="selectArr"
             :props="defaultProps"
+            default-expand-all
+            node-key="id"
+            show-checkbox
         />
       </template>
       <template #footer>
@@ -271,6 +306,6 @@ const setRole = async () => {
 
 </template>
 
-<style scoped lang="scss">
+<style lang="scss" scoped>
 
 </style>

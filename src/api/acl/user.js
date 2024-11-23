@@ -35,10 +35,19 @@ export const addOrUpdateNewUserAPI = (data) => {
     })
 }
 
-//修改用户权限
+//分配用户的角色
 export const setUserRoleAPI = (data) => {
     return request({
         url: '/setUserRole',
+        method: 'post',
+        data
+    })
+}
+
+//修改用户的权限
+export const addUserPermissionAPI = (data) => {
+    return request({
+        url: '/addUserPermission',
         method: 'post',
         data
     })

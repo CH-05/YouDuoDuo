@@ -18,7 +18,7 @@ const filterAsyncRoute = (asyncRoute, routes) => {
   })
 }
 
-const useUserStore = defineStore('user', {
+const useUserStore = defineStore('userStore', {
   state: () => {
     return {
       token: getToken(),
@@ -60,9 +60,26 @@ const useUserStore = defineStore('user', {
         this.username = result.data.username
         this.avatar = result.data.avatar
         this.role = result.data.role
+        let routes = JSON.parse(result.data.routes)
+        //把result.data.routes中label字段的value提取出来组成一个新数组
+        function collectLabels(routes) {
+          let labels = [];
+          for (let route of routes) {
+            if (route.label && route.select) {
+              labels.push(route.label);
+            }
+            if (route.children) {
+              labels = labels.concat(collectLabels(route.children));
+            }
+          }
+          return labels;
+        }
+
+        const labels = collectLabels(routes);
+
         const userAsyncRoute = filterAsyncRoute(
           cloneDeep(asyncRoute),
-          result.data.routes,
+          labels
         )
         const arr = [...userAsyncRoute, ...anyRoute]
         this.menuRoutes = [...constantRoute, ...arr]

@@ -76,7 +76,7 @@
 <script setup>
 import {nextTick, onMounted, reactive, ref} from 'vue'
 import {ElMessage} from 'element-plus'
-import {reqMenu} from "@/api/menu/index.js";
+import {reqMenuAPI} from "@/api/menu/index.js";
 
 const tableData = ref([])
 const addMenuVisible = ref(false)
@@ -115,7 +115,7 @@ const rules = {
 
 // 菜单列表
 const getMenuList = async () => {
-  const result = await reqMenu()
+  const result = await reqMenuAPI()
   console.log(result);
   if (result.code === 200) {
     tableData.value = result.data

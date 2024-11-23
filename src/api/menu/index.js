@@ -1,8 +1,8 @@
 import request from "../index.js";
 
-export const reqMenu = () => {
+export const reqMenuAPI = () => {
     return request({
-        url: '/menu',
+        url: '/getMenu',
         method: 'get',
     })
 }

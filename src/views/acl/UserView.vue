@@ -3,6 +3,7 @@ import {nextTick, onMounted, reactive, ref, shallowReactive, toRaw, watch, watch
 import {addOrUpdateNewUserAPI, getUserListAPI, removeUserAPI, removeUsersAPI, setUserRoleAPI} from "@/api/acl/user.js";
 import {ElMessage} from "element-plus";
 import useUserStore from "@/stores/modules/user.js";
+import moment from "moment/moment.js";
 
 //当前页
 const pageNo = ref(1);
@@ -66,6 +67,8 @@ const getUserList = async () => {
   if (res.code === 200) {
     tableData.value = res.data.result.map((item) => {
       item.role = JSON.parse(item.role)
+      item.created_at = moment(item.created_at).format("YYYY-MM-DD HH:mm:ss")
+      item.updated_at = moment(item.updated_at).format("YYYY-MM-DD HH:mm:ss")
       return item
     })
     total.value = res.data.total
@@ -106,28 +109,34 @@ const selectChange = (value) => {
   })
 }
 const userBatchDelete = async () => {
-  const res = await removeUsersAPI({users_id: selectId.value})
-  if (res.code === 200) {
-    ElMessage({
-      type: 'success',
-      message: res.message
-    })
-    await getUserList()
-  } else {
-    ElMessage({
-      type: 'error',
-      message: res.message
-    })
+  let result = isAuthorization();
+  if (result){
+    const res = await removeUsersAPI({users_id: selectId.value})
+    if (res.code === 200) {
+      ElMessage({
+        type: 'success',
+        message: res.message
+      })
+      await getUserList()
+    } else {
+      ElMessage({
+        type: 'error',
+        message: res.message
+      })
+    }
   }
 }
 
 //添加新用户
 const addUser = async () => {
-  Object.assign(userInfo, {user_id: '', username: '', password: ''})
-  drawerShow.value = true;
-  await nextTick(() => {
-    formRef.value.clearValidate()
-  })
+  let result = isAuthorization();
+  if (result) {
+    Object.assign(userInfo, {user_id: '', username: '', password: ''})
+    drawerShow.value = true;
+    await nextTick(() => {
+      formRef.value.clearValidate()
+    })
+  }
 }
 
 // 修改
@@ -194,6 +203,7 @@ let userRole = ref({
 
 //分配角色按钮
 const clickRoleBtn = async (row) => {
+  console.log(row);
   Object.assign(userInfo, row)
   console.log(userInfo);
   const currentRoleId = userStore.role.id;
@@ -214,7 +224,23 @@ const clickRoleBtn = async (row) => {
 //判断该用户有没有权限修改此用户的权限
 const hasPermission = (item) => {
   const roleId = userStore.role.id
-  return roleId <= item.id;
+  if (roleId === 0 || roleId === 1){
+    return true
+  }
+  return roleId <= item.id
+}
+
+//判断用户是否有权限点击按钮
+const isAuthorization = () => {
+  const roleId = userStore.role.id
+  if (roleId === 0 || roleId === 1){
+    ElMessage({
+      type: "warning",
+      message: "你为普通用户，无法执行此操作"
+    })
+    return false
+  }
+  return true
 }
 
 //取消用户权限分配
@@ -302,6 +328,7 @@ const setRole = async () => {
                 icon="Edit"
                 size="small"
                 type="success"
+                :disabled="hasPermission(row.role)"
                 @click="updateUser(row)"
             >
               编辑
@@ -312,7 +339,7 @@ const setRole = async () => {
                 @confirm="userDelete(row.user_id)"
             >
               <template #reference>
-                <el-button icon="Delete" size="small" type="danger">
+                <el-button icon="Delete" size="small" type="danger" :disabled="hasPermission(row.role)" @click="hasPermission(row.role)">
                   删除
                 </el-button>
               </template>
