@@ -705,6 +705,43 @@ const handleSearch = () => {
         </div>
       </template>
     </el-drawer>
+
+    <!--       分配角色 -->
+    <el-drawer v-model="roleShow" direction="rtl" size="35%">
+      <template #header>
+        <h4>分配角色</h4>
+      </template>
+      <template #default>
+        <el-form>
+          <el-form-item label="用户姓名:">
+            <el-input
+                placeholder="请输入用户姓名"
+                disabled
+                v-model="userInfo.username"
+            />
+          </el-form-item>
+          <el-form-item label="角色列表:">
+            <el-radio-group v-model="userRole.id">
+              <el-radio v-for="item in allRole" :value="item.id" @change="changePermission(item)" :key="item.id" :disabled="hasPermission(item)">
+                {{ item.name }}
+              </el-radio>
+            </el-radio-group>
+          </el-form-item>
+        </el-form>
+      </template>
+      <template #footer>
+        <div style="flex: auto">
+          <el-button @click="closeRole">取消</el-button>
+          <el-button
+              type="primary"
+              :disabled="!userRole"
+              @click="setRole"
+          >
+            确定
+          </el-button>
+        </div>
+      </template>
+    </el-drawer>
   </div>
 </template>
 
