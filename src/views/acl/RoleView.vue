@@ -5,7 +5,7 @@ import {ElMessage, ElMessageBox} from "element-plus";
 import {useUserStore} from "@/stores/modules/user.js";
 import {
   getRoleListAPI,
-  reqPermissionMenuAPI,
+  getPermissionMenuAPI,
   addRoleAPI,
   updateRoleAPI,
   deleteRoleAPI,
@@ -95,28 +95,36 @@ const reset = async () => {
 
 //获取所有用户
 const getRoleList = async () => {
-  //简单判断一下用户输入的内容是否值得发送请求
-  if (!["超级管理员", "管理员", "员工", "供应商", "客户", ""].includes(keyword.value)) {
-    ElMessage({
-      type: 'warning',
-      message: '查询不到该字段'
-    })
-  } else {
+  try {
+    loading.value = true;
+    //简单判断一下用户输入的内容是否值得发送请求
+    if (!["超级管理员", "管理员", "员工", "供应商", "客户", ""].includes(keyword.value)) {
+      ElMessage({
+        type: 'warning',
+        message: '查询不到该字段'
+      })
+      return;
+    }
+
     let res = await getRoleListAPI(pageNo.value, pageSize.value, keyword.value);
     if (res.code === 200) {
-      tableData.value = res.data.result.map((item) => {
-        item.role = JSON.parse(item.role)
-        item.created_at = moment(item.created_at).format("YYYY-MM-DD HH:mm:ss")
-        item.updated_at = moment(item.updated_at).format("YYYY-MM-DD HH:mm:ss")
-        return item
-      })
-      total.value = res.data.total
-    } else if (res.code === 501) {
+      tableData.value = res.data.records.map((item) => ({
+        ...item,
+        created_at: moment(item.created_at).format("YYYY-MM-DD HH:mm:ss"),
+        updated_at: moment(item.updated_at).format("YYYY-MM-DD HH:mm:ss")
+      }));
+      total.value = res.data.total;
+    } else {
       ElMessage({
         type: 'error',
-        message: res.message
+        message: res.message || '获取角色列表失败'
       })
     }
+  } catch (error) {
+    console.error('获取角色列表失败:', error);
+    ElMessage.error('获取角色列表失败');
+  } finally {
+    loading.value = false;
   }
 }
 
@@ -168,7 +176,7 @@ const addPermission = async (row) => {
   if (currentRoleId > roleId) {
     drawerShow.value = true
     //获取当前点击用户拥有哪些权限
-    const res = await reqPermissionMenuAPI(roleParams.user_id)
+    const res = await getPermissionMenuAPI(roleParams.user_id)
     console.log(res);
     if (res.code === 200) {
       menuData.value = JSON.parse(res.data.routes)
@@ -268,8 +276,11 @@ const updateRole = (row) => {
 const roleDelete = async (roleId) => {
   try {
     await ElMessageBox.confirm('确定要删除该角色吗？', '提示', {
-      type: 'warning'
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
     })
+    
     const res = await deleteRoleAPI(roleId)
     if (res.code === 200) {
       ElMessage.success('删除成功')
@@ -290,12 +301,25 @@ const save = async () => {
   if (!formRef.value) return
   
   try {
-    saving.value = true
     await formRef.value.validate()
+    saving.value = true
+    
+    // 验证数据完整性
+    if (!roleInfo.role_name || !roleInfo.role_code) {
+      ElMessage.error('角色名称和编码不能为空')
+      return
+    }
+    
+    // 处理可能为undefined的字段
+    const roleData = {
+      ...roleInfo,
+      description: roleInfo.description || '',
+      status: roleInfo.status || 1
+    }
     
     const res = roleInfo.role_id
-      ? await updateRoleAPI(roleInfo.role_id, roleInfo)
-      : await addRoleAPI(roleInfo)
+      ? await updateRoleAPI(roleInfo.role_id, roleData)
+      : await addRoleAPI(roleData)
       
     if (res.code === 200) {
       ElMessage.success(roleInfo.role_id ? '更新成功' : '添加成功')
@@ -306,7 +330,11 @@ const save = async () => {
     }
   } catch (error) {
     console.error('保存失败:', error)
-    ElMessage.error('表单验证失败，请检查输入')
+    if (error.response && error.response.data) {
+      ElMessage.error(error.response.data.message || '保存失败')
+    } else {
+      ElMessage.error('表单验证失败，请检查输入')
+    }
   } finally {
     saving.value = false
   }
@@ -329,7 +357,20 @@ const handleStatusChange = async (row) => {
   }
 }
 
-// 分页处理方法
+// 搜索处理
+const handleSearch = () => {
+  pageNo.value = 1
+  getRoleList()
+}
+
+// 重置搜索
+const resetSearch = () => {
+  keyword.value = ''
+  pageNo.value = 1
+  getRoleList()
+}
+
+// 分页处理
 const handleSizeChange = (val) => {
   pageSize.value = val
   getRoleList()
@@ -355,8 +396,8 @@ const handleDialogClose = () => {
         placeholder="请输入角色名称搜索"
         class="search-input"
         clearable
-        @clear="reset"
-        @keyup.enter="getRoleList"
+        @clear="resetSearch"
+        @keyup.enter="handleSearch"
       >
         <template #prefix>
           <el-icon><Search /></el-icon>

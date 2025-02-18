@@ -22,7 +22,12 @@ export const addRoleAPI = (data) => {
     return request({
         url: '/acl/role/add',
         method: 'post',
-        data
+        data: {
+            role_name: data.role_name,
+            role_code: data.role_code,
+            description: data.description || '',
+            status: data.status || 1
+        }
     });
 };
 
@@ -31,7 +36,12 @@ export const updateRoleAPI = (roleId, data) => {
     return request({
         url: `/acl/role/${roleId}`,
         method: 'put',
-        data
+        data: {
+            role_name: data.role_name,
+            role_code: data.role_code,
+            description: data.description || '',
+            status: data.status || 1
+        }
     });
 };
 

@@ -61,6 +61,15 @@ export const setUserRoleAPI = (userId, roleIds) => {
   })
 }
 
+// 添加用户权限
+export const addUserPermissionAPI = (data) => {
+  return request({
+    url: '/acl/user/permission',
+    method: 'post',
+    data
+  })
+}
+
 // 获取角色列表
 export const getRoleListAPI = () => {
   return request({
