@@ -1,14 +1,41 @@
-@import "./reset.scss";
+@import './variables.scss';
+
+// 全局样式
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-family: Helvetica Neue, Helvetica, PingFang SC, Hiragino Sans GB, Microsoft YaHei, Arial, sans-serif;
+}
+
+#app {
+  height: 100%;
+  background: $base-background-color;
+}
+
+// 清除浮动
+.clearfix {
+  &:after {
+    content: '';
+    display: table;
+    clear: both;
+  }
+}
 
 // 滚动条样式
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 6px;
+  height: 6px;
 }
+
 ::-webkit-scrollbar-track {
-  background: $base-menu-background;
+  background: $base-background-color;
 }
+
 ::-webkit-scrollbar-thumb {
-  width: 10px;
-  background-color: yellowgreen;
-  border-radius: 10px;
+  background: rgba(144, 147, 153, 0.3);
+  border-radius: 3px;
 }

@@ -1,17 +1,81 @@
-import request from "@/api/index.js";
+import request from "@/utils/request";
 
-//获取所有角色列表
-export const getRoleListAPI = (page,limit,name) => {
+// 获取角色列表
+export const getRoleListAPI = (page, limit, keyword) => {
     return request({
-        url: `/getRoleList/page=${page}/limit=${limit}?name=${name}`,
+        url: `/acl/role/list/${page}/${limit}`,
         method: 'get',
-    })
-}
+        params: { keyword }
+    });
+};
 
-//获取当前点击用户的所有权限
-export const reqPermissionMenuAPI = (user_id) => {
+// 获取所有角色
+export const getAllRolesAPI = () => {
     return request({
-        url: `/getPermissionMenu?user_id=${user_id}`,
-        method: 'get',
-    })
-}
+        url: '/acl/role/all',
+        method: 'get'
+    });
+};
+
+// 添加角色
+export const addRoleAPI = (data) => {
+    return request({
+        url: '/acl/role/add',
+        method: 'post',
+        data
+    });
+};
+
+// 更新角色
+export const updateRoleAPI = (roleId, data) => {
+    return request({
+        url: `/acl/role/${roleId}`,
+        method: 'put',
+        data
+    });
+};
+
+// 删除角色
+export const deleteRoleAPI = (roleId) => {
+    return request({
+        url: `/acl/role/${roleId}`,
+        method: 'delete'
+    });
+};
+
+// 获取用户的角色列表
+export const getUserRolesAPI = (userId) => {
+    return request({
+        url: `/acl/user/${userId}/roles`,
+        method: 'get'
+    });
+};
+
+// 设置用户角色
+export const setUserRolesAPI = (userId, roleIds) => {
+    return request({
+        url: `/acl/user/role`,
+        method: 'post',
+        data: {
+            user_id: userId,
+            role_ids: roleIds
+        }
+    });
+};
+
+// 获取用户的权限菜单
+export const getPermissionMenuAPI = (userId) => {
+    return request({
+        url: `/acl/user/${userId}/menu`,
+        method: 'get'
+    });
+};
+
+// 更新角色状态
+export const updateRoleStatusAPI = (roleId, status) => {
+    return request({
+        url: `/acl/role/${roleId}/status`,
+        method: 'put',
+        data: { status }
+    });
+};

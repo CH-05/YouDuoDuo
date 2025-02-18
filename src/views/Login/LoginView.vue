@@ -1,7 +1,7 @@
 <script setup>
-import {reactive, ref} from "vue";
+import {onMounted, onUnmounted, reactive, ref} from "vue";
 import {useRoute, useRouter} from "vue-router";
-import useUserStore from "@/stores/modules/user.js";
+import {useUserStore} from "@/stores/modules/user.js";
 import {particlesOption} from "@/config/particlesOption.js";
 import {ElMessage} from "element-plus";
 
@@ -19,54 +19,84 @@ const route = useRoute()
 
 
 const validateUsn = (rule, value, callback) => {
-  if (value.trim().length >= 1) {
-    callback()
+  if (!value) {
+    callback(new Error('请输入用户名'))
+  } else if (value.length < 3) {
+    callback(new Error('用户名长度不能小于3个字符'))
   } else {
-    callback(new Error("账号长度至少为5位"))
+    callback()
   }
 }
+
 const validatePass = (rule, value, callback) => {
-  if (value.trim().length >= 1) {
-    callback()
+  if (!value) {
+    callback(new Error('请输入密码'))
+  } else if (value.length < 6) {
+    callback(new Error('密码长度不能小于6个字符'))
   } else {
-    callback(new Error("密码长度至少为6位"))
+    callback()
   }
 }
 
 const rules = reactive({
   username: [{validator: validateUsn, trigger: 'blur'}],
-  password: [{validator: validatePass, trigger: 'blur'}],
+  password: [{validator: validatePass, trigger: 'blur'}]
 })
+
 const submitForm = async () => {
-  await loginForms.value.validate()
-  loading.value = true
+  if (!loginForms.value) return
+  
   try {
+    await loginForms.value.validate()
+    loading.value = true
     await userStore.userLogin(loginForm)
     const redirect = route.query.redirect
-    console.log(redirect);
     router.push({path: redirect || '/'})
-    //从仓库中拿数据
-    ElMessage({type: 'success', message: "登录成功"})
-    loading.value = false
-  } catch (e) {
     ElMessage({
-      message: "登录失败，请检查用户名和密码是否输入正确",
-      type: 'error'
+      type: 'success',
+      message: '登录成功'
     })
+  } catch (error) {
+    console.error('登录失败:', error)
+    ElMessage({
+      type: 'error',
+      message: error.message || '登录失败，请检查用户名和密码'
+    })
+  } finally {
     loading.value = false
   }
 }
+
 //重置输入框
-const resetForm = (formEl) => {
-  if (!formEl) return
-  formEl.resetFields()
+const resetForm = () => {
+  if (!loginForms.value) return
+  loginForms.value.resetFields()
 }
+
+//键盘enter键入时登录
+const keyDown = (e) => {
+  if (e.keyCode === 13) {
+    submitForm()
+  }
+}
+
+// 页面挂载时
+onMounted(() => {
+  //绑定监听事件
+  window.addEventListener('keydown', keyDown)
+})
+
+//页面卸载时
+onUnmounted(() => {
+  window.removeEventListener('keydown', keyDown, false)
+})
+
 
 </script>
 
 <template>
   <div id="bg" class="login-other">
-    <vue-particles id="tsparticles" :options="particlesOption"/>
+    <vue-particles id="tsparticles" :options="particlesOption" />
     <el-form
         class="loginContainer"
         ref="loginForms"
@@ -84,7 +114,7 @@ const resetForm = (formEl) => {
       </el-form-item>
       <el-row justify="center">
         <el-form-item>
-          <el-button type="primary" :loading="loading" @click="submitForm">
+          <el-button type="primary" :loading="loading" @keydown.enter="keyDown()" @click="submitForm">
             登录
           </el-button>
           <el-button style="margin-right: 15px" @click="resetForm(loginForms)">重置</el-button>

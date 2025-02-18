@@ -1,10 +1,18 @@
 <script setup>
 import {onMounted, reactive, ref} from "vue";
 import {addUserPermissionAPI, removeUserAPI} from "@/api/acl/user.js";
-import {ElMessage} from "element-plus";
-import useUserStore from "@/stores/modules/user.js";
-import {getRoleListAPI, reqPermissionMenuAPI} from "@/api/acl/role.js";
+import {ElMessage, ElMessageBox} from "element-plus";
+import {useUserStore} from "@/stores/modules/user.js";
+import {
+  getRoleListAPI,
+  reqPermissionMenuAPI,
+  addRoleAPI,
+  updateRoleAPI,
+  deleteRoleAPI,
+  updateRoleStatusAPI
+} from "@/api/acl/role";
 import moment from "moment";
+import { Plus, Edit, Delete, Search } from '@element-plus/icons-vue'
 
 //当前页
 const pageNo = ref(1);
@@ -37,6 +45,32 @@ const roleParams = reactive({
   name: '',
 })
 
+// 添加缺失的响应式变量
+const loading = ref(false)
+const dialogVisible = ref(false)
+const saving = ref(false)
+
+// 角色信息对象
+const roleInfo = reactive({
+  role_id: '',
+  role_name: '',
+  role_code: '',
+  description: '',
+  status: 1
+})
+
+// 修改表单验证规则
+const rules = {
+  role_name: [
+    { required: true, message: '请输入角色名称', trigger: 'blur' },
+    { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
+  ],
+  role_code: [
+    { required: true, message: '请输入角色编码', trigger: 'blur' },
+    { pattern: /^[A-Z_]+$/, message: '角色编码只能包含大写字母和下划线', trigger: 'blur' }
+  ]
+}
+
 // 自定义表达校验
 const validateUserName = (_rule, value, callback) => {
   if (value.trim().length >= 1) {
@@ -51,10 +85,6 @@ const validatePassword = (_rule, value, callback) => {
   } else {
     callback(new Error('用户密码至少为6位'))
   }
-}
-const rules = {
-  username: [{required: true, validator: validateUserName, trigger: 'blur'}],
-  password: [{required: true, validator: validatePassword, trigger: 'blur'}],
 }
 
 //重置输入框
@@ -215,97 +245,271 @@ const roleSave = async () => {
 const roleCancel = () => {
   drawerShow.value = false
 }
+
+// 添加角色方法
+const addRole = () => {
+  Object.assign(roleInfo, {
+    role_id: '',
+    role_name: '',
+    role_code: '',
+    description: '',
+    status: 1
+  })
+  dialogVisible.value = true
+}
+
+// 更新角色方法
+const updateRole = (row) => {
+  Object.assign(roleInfo, row)
+  dialogVisible.value = true
+}
+
+// 删除角色方法
+const roleDelete = async (roleId) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该角色吗？', '提示', {
+      type: 'warning'
+    })
+    const res = await deleteRoleAPI(roleId)
+    if (res.code === 200) {
+      ElMessage.success('删除成功')
+      getRoleList()
+    } else {
+      ElMessage.error(res.message || '删除失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除失败:', error)
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
+// 保存角色方法
+const save = async () => {
+  if (!formRef.value) return
+  
+  try {
+    saving.value = true
+    await formRef.value.validate()
+    
+    const res = roleInfo.role_id
+      ? await updateRoleAPI(roleInfo.role_id, roleInfo)
+      : await addRoleAPI(roleInfo)
+      
+    if (res.code === 200) {
+      ElMessage.success(roleInfo.role_id ? '更新成功' : '添加成功')
+      dialogVisible.value = false
+      getRoleList()
+    } else {
+      ElMessage.error(res.message || (roleInfo.role_id ? '更新失败' : '添加失败'))
+    }
+  } catch (error) {
+    console.error('保存失败:', error)
+    ElMessage.error('表单验证失败，请检查输入')
+  } finally {
+    saving.value = false
+  }
+}
+
+// 处理状态变更
+const handleStatusChange = async (row) => {
+  try {
+    const res = await updateRoleStatusAPI(row.role_id, row.status)
+    if (res.code === 200) {
+      ElMessage.success('状态更新成功')
+    } else {
+      row.status = row.status === 1 ? 0 : 1
+      ElMessage.error(res.message || '状态更新失败')
+    }
+  } catch (error) {
+    console.error('更新状态失败:', error)
+    ElMessage.error('更新状态失败')
+    row.status = row.status === 1 ? 0 : 1
+  }
+}
+
+// 分页处理方法
+const handleSizeChange = (val) => {
+  pageSize.value = val
+  getRoleList()
+}
+
+const handleCurrentChange = (val) => {
+  pageNo.value = val
+  getRoleList()
+}
+
+// 对话框关闭处理
+const handleDialogClose = () => {
+  formRef.value?.resetFields()
+}
 </script>
 
 <template>
-  <div>
-    <el-card style="height: 80px">
-      <el-form class="form" inline>
-        <el-form-item label="角色名称：">
-          <el-input v-model="keyword" placeholder="请输入角色名称"/>
+  <div class="role-container">
+    <!-- 搜索和操作栏 -->
+    <div class="operation-bar">
+      <el-input
+        v-model="keyword"
+        placeholder="请输入角色名称搜索"
+        class="search-input"
+        clearable
+        @clear="reset"
+        @keyup.enter="getRoleList"
+      >
+        <template #prefix>
+          <el-icon><Search /></el-icon>
+        </template>
+      </el-input>
+      <div class="operation-buttons">
+        <el-button type="primary" :icon="Plus" @click="addRole">添加角色</el-button>
+      </div>
+    </div>
+
+    <!-- 角色列表表格 -->
+    <el-table
+      v-loading="loading"
+      :data="tableData"
+      style="width: 100%"
+    >
+      <el-table-column prop="role_name" label="角色名称" min-width="120" />
+      <el-table-column prop="role_code" label="角色编码" min-width="120" />
+      <el-table-column prop="description" label="描述" min-width="180" />
+      <el-table-column label="状态" width="100">
+        <template #default="{ row }">
+          <el-switch
+            v-model="row.status"
+            :active-value="1"
+            :inactive-value="0"
+            :disabled="row.role_id === 1"
+            @change="handleStatusChange(row)"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="180" fixed="right">
+        <template #default="{ row }">
+          <el-button-group>
+            <el-button
+              type="primary"
+              :icon="Edit"
+              link
+              :disabled="row.role_id === 1"
+              @click="updateRole(row)"
+            >
+              编辑
+            </el-button>
+            <el-button
+              type="danger"
+              :icon="Delete"
+              link
+              :disabled="row.role_id === 1"
+              @click="roleDelete(row.role_id)"
+            >
+              删除
+            </el-button>
+          </el-button-group>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <!-- 分页 -->
+    <div class="pagination-container">
+      <el-pagination
+        v-model:current-page="pageNo"
+        v-model:page-size="pageSize"
+        :page-sizes="[10, 20, 50]"
+        :total="total"
+        layout="total, sizes, prev, pager, next"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
+    </div>
+
+    <!-- 角色表单对话框 -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="roleInfo.role_id ? '编辑角色' : '添加角色'"
+      width="500px"
+      :close-on-click-modal="false"
+      @close="handleDialogClose"
+    >
+      <el-form
+        ref="formRef"
+        :model="roleInfo"
+        :rules="rules"
+        label-width="100px"
+        class="role-form"
+      >
+        <el-form-item label="角色名称" prop="role_name">
+          <el-input v-model="roleInfo.role_name" placeholder="请输入角色名称" />
         </el-form-item>
-        <el-form-item>
-          <el-button :disabled="!keyword" type="primary" @click="getRoleList">
-            搜索
-          </el-button>
-          <el-button :disabled="!keyword" @click="reset">重置</el-button>
+        <el-form-item label="角色编码" prop="role_code">
+          <el-input v-model="roleInfo.role_code" placeholder="请输入角色编码" />
+        </el-form-item>
+        <el-form-item label="描述" prop="description">
+          <el-input
+            v-model="roleInfo.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入角色描述"
+          />
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-switch
+            v-model="roleInfo.status"
+            :active-value="1"
+            :inactive-value="0"
+            active-text="启用"
+            inactive-text="禁用"
+          />
         </el-form-item>
       </el-form>
-    </el-card>
-    <el-card style="margin: 15px 0">
-      <el-table
-          :data="tableData"
-          border
-          style="margin: 10px 0"
-          @selection-change="selectChange"
-      >
-        <el-table-column label="id" prop="user_id" width="80"></el-table-column>
-        <el-table-column label="用户角色" prop="role.name"></el-table-column>
-        <el-table-column label="创建时间" prop="created_at"></el-table-column>
-        <el-table-column label="更新时间" prop="updated_at"></el-table-column>
-        <el-table-column label="操作" width="270">
-          <template v-slot="{ row }">
-            <el-button
-                icon="User"
-                size="small"
-                type="primary"
-                @click="addPermission(row)"
-            >
-              分配权限
-            </el-button>
-            <el-popconfirm
-                :title="`您确定删除${row.name}吗？`"
-                width="250"
-                @confirm="userDelete(row.user_id)"
-            >
-              <template #reference>
-                <el-button icon="Delete" size="small" type="danger">
-                  删除
-                </el-button>
-              </template>
-            </el-popconfirm>
-          </template>
-        </el-table-column>
-      </el-table>
-      <el-pagination
-          v-model:current-page="pageNo"
-          v-model:page-size="pageSize"
-          :background="false"
-          :page-sizes="[5, 10, 15, 20]"
-          :total="total"
-          layout="prev, pager, next, jumper, ->, sizes, total"
-          @size-change="getRoleList"
-          @current-change="getRoleList"
-      />
-    </el-card>
-
-    <!-- 分配权限 -->
-    <el-drawer v-model="drawerShow" direction="rtl" size="30%">
-      <template #header>
-        <h4>分配权限</h4>
-      </template>
-      <template #default>
-        <el-tree
-            ref="treeRef"
-            :data="menuData"
-            :default-checked-keys="selectArr"
-            :props="defaultProps"
-            default-expand-all
-            node-key="id"
-            show-checkbox
-        />
-      </template>
       <template #footer>
-        <div style="flex: auto">
-          <el-button @click="roleCancel">取消</el-button>
-          <el-button type="primary" @click="roleSave">确定</el-button>
+        <div class="dialog-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="save" :loading="saving">
+            {{ roleInfo.role_id ? '更新' : '添加' }}
+          </el-button>
         </div>
       </template>
-    </el-drawer>
+    </el-dialog>
   </div>
-
 </template>
 
 <style lang="scss" scoped>
+.role-container {
+  padding: 20px;
+}
 
+.operation-bar {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.search-input {
+  width: 250px;
+}
+
+.operation-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.role-form {
+  padding: 20px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
 </style>

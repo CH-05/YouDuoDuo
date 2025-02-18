@@ -4,9 +4,9 @@
 // 左侧的菜单的宽度
 $base-menu-width: 260px;
 // 左侧菜单折叠的宽度
-$base-menu-min-width: 60px;
+$base-menu-min-width: 50px;
 // 左侧菜单的背景颜色
-$base-menu-background: #001529;
+$base-menu-background: #2B3440;
 
 // 顶部导航的高度
 $base-tabbar-height: 50px;
@@ -16,3 +16,11 @@ $base-menu-logo-height: 50px;
 
 // 左侧菜单logo右侧文字大小
 $base-logo-title-fontSize: 20px;
+
+// 菜单文字颜色
+$base-menu-text-color: #B9C0C8;  // 浅灰色文字
+$base-menu-active-text-color: #FFB800;  // 选中时的橙黄色
+$base-menu-hover-text-color: #ffffff;   // 悬浮时的白色
+
+// 菜单项激活时的背景色
+$base-menu-active-background: #343D4B;  // 稍微浅一点的深色

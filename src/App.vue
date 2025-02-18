@@ -3,10 +3,9 @@ import {RouterView} from 'vue-router'
 </script>
 
 <template>
-  <!--  一级路由-->
-  <RouterView/>
+  <router-view></router-view>
 </template>
 
 <style scoped>
-
+/* 可以添加全局样式 */
 </style>

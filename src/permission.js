@@ -1,8 +1,7 @@
-// 路由鉴权
-import router from './router'
 // 注意：路由鉴权文件里面使用pinia仓库数据的方法
 import pinia from './stores'
-import useUserStore from '@/stores/modules/user'
+import {useUserStore} from '@/stores/modules/user'
+import router from '@/router'
 // @ts-ignore
 import NProgress from 'nprogress'
 import setting from './setting'
@@ -18,31 +17,39 @@ const userStore = useUserStore(pinia)
 
 // 前置守卫
 router.beforeEach(async (to, _from, next) => {
-  document.title = `${setting.title} - ${to.meta.title}`
+  // 修改标题处理逻辑
+  const title = to.meta.title || '首页'  // 添加默认值
+  document.title = `${setting.title} - ${title}`
+  
   NProgress.start()
   const token = userStore.token
   const username = userStore.username
+
   if (token) {
-    // 用户登录或注册
     if (to.path === '/login' || to.path === '/register') {
-      next({ path: '/' })
+      next('/')
     } else {
-      // 判断是否有用户信息
       if (username) {
-        next()
+        // 检查用户是否有访问该路由的权限
+        if (to.matched.length === 0) {
+          next('/404')
+        } else {
+          next()
+        }
       } else {
         try {
-          await userStore.userInfo()
-          next({ ...to })
+          await userStore.getUserInfo()
+          // 重要：获取用户信息后，需要重新触发路由
+          next({ ...to, replace: true })
         } catch (error) {
-          let res = await userStore.userLogout()
-          console.log(res);
+          console.error('获取用户信息失败:', error)
+          // 发生错误时，清除用户信息并重定向到登录页
+          await userStore.userLogout()
           next({ path: '/login', query: { redirect: to.path } })
         }
       }
     }
   } else {
-    // 用户未登录
     if (to.path === '/login' || to.path === '/register') {
       next()
     } else {

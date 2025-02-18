@@ -1,4 +1,4 @@
-import request from "../index.js";
+import request from "../../utils/request";
 
 export const reqMenuAPI = () => {
     return request({

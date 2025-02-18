@@ -1,29 +1,36 @@
 <template>
-  <div>
-    <el-card>
-      <div class="box">
-        <img :src="userStore.avatar" alt="" class="avatar" />
-        <div class="bottom">
-          <h3 class="title">{{ getTime() }}好呀{{ userStore.username }}</h3>
-          <p class="subtitle">油多多管理平台</p>
+  <div class="home">
+    <div>
+      <el-card>
+        <div class="box">
+          <img :src="userStore.avatar" alt="" class="avatar" />
+          <div class="bottom">
+            <h3 class="title">{{ getTime() }}好呀{{ userStore.username }}</h3>
+            <p class="subtitle">油多多管理平台</p>
+          </div>
         </div>
+      </el-card>
+      <div class="bottoms">
+        <svg-icon name="welcome" width="600px" height="300px"></svg-icon>
       </div>
-    </el-card>
-    <div class="bottoms">
-      <svg-icon name="welcome" width="600px" height="300px"></svg-icon>
     </div>
   </div>
 </template>
 
 <script setup>
 import { getTime } from '@/utils/time'
-//引入用户相关的仓库,获取当前用户的头像、昵称
-import useUserStore from '@/stores/modules/user'
-//获取存储用户信息的仓库对象
-let userStore = useUserStore()
+import { useUserStore } from '@/stores/modules/user'
+
+//获取用户仓库
+const userStore = useUserStore()
 </script>
 
 <style scoped lang="scss">
+.home {
+  width: 100%;
+  height: 100%;
+}
+
 .box {
   display: flex;
 

@@ -50,9 +50,9 @@
 </template>
 
 <script setup>
-import {ref} from 'vue'
+import {ref, onMounted} from 'vue'
 import {useRouter, useRoute} from 'vue-router'
-import useUserStore from '@/stores/modules/user'
+import {useUserStore} from '@/stores/modules/user'
 import useLayoutSettingStore from '@/stores/modules/setting'
 
 const router = useRouter()
@@ -116,12 +116,43 @@ const pickerChange = () => {
 }
 
 // 暗黑模式
-// element-plus已经支持暗黑模式了，在html标签增加dark类目，在入口文件引入暗黑模式的css文件
-const dark = ref(false)
+const dark = ref(layoutSettingStore.dark)
+
+// 切换暗黑模式
 const switchChange = () => {
   const html = document.documentElement
-  dark.value ? (html.className = 'dark') : (html.className = '')
+  if (dark.value) {
+    html.className = 'dark'
+    layoutSettingStore.setDark(true)
+  } else {
+    html.className = ''
+    layoutSettingStore.setDark(false)
+  }
 }
+
+// 改变主题色的方法
+const changeTheme = (value) => {
+  const el = document.documentElement
+  // 保存到 store 和 localStorage
+  layoutSettingStore.setThemeColor(value)
+  
+  // 设置主色调
+  el.style.setProperty('--el-color-primary', value)
+  // 设置不同色调
+  for(let i = 1; i <= 9; i++) {
+    el.style.setProperty(`--el-color-primary-light-${i}`, getLightColor(value, i/10))
+  }
+  // 设置深色调
+  el.style.setProperty('--el-color-primary-dark-2', getDarkColor(value, 0.1))
+}
+
+// 在组件挂载时应用保存的主题色
+onMounted(() => {
+  const savedColor = layoutSettingStore.color
+  if (savedColor) {
+    changeTheme(savedColor)
+  }
+})
 </script>
 
 <script>

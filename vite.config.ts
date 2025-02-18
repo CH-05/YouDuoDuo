@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
   // 获取各种环境下对应的变量 (有哪些变量，可以去环境变量的文件里面查看)
   // loadEnv(当前所处的开发环境, 环境文件的父级路径)
   // process.cwd()：就是项目根目录的路径
-  let env = loadEnv(mode, process.cwd())
+  const env = loadEnv(mode, process.cwd())
   return {
     plugins: [
       vue(),
@@ -38,14 +38,51 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
-    // 代理
+    // 优化代理配置
     server: {
-      port:5177,
+      port: 5173,
+      host: true,
+      // 添加错误处理
+      cors: true,
       proxy: {
+        '/api': {
+          target: 'http://localhost:3000',
+          changeOrigin: true,
+          secure: false,
+          // 添加调试日志
+          configure: (proxy, options) => {
+            proxy.on('proxyReq', (proxyReq, req, res) => {
+              console.log('代理请求:', req.method, req.url, '->',
+                `${options.target}${proxyReq.path}`);
+            });
+          }
+        },
         [env.VITE_APP_BASE_API]: {
           target: env.VITE_SERVE,
           changeOrigin: true,
+          secure: false,
           rewrite: (path) => path.replace(/^\/api/, ''),
+        },
+      },
+    },
+    // 添加构建优化
+    build: {
+      // 生产环境移除 console
+      terserOptions: {
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+        },
+      },
+      // 构建后的文件大小警告限制
+      chunkSizeWarningLimit: 1500,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              return 'vendor';
+            }
+          },
         },
       },
     },

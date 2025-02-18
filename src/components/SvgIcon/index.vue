@@ -1,35 +1,40 @@
 <template>
-  <div>
-    <svg :style="{ width: width, height: height }">
-      <use :xlink:href="prefix + name" :fill="color"></use>
-    </svg>
-  </div>
+  <svg :class="svgClass" aria-hidden="true">
+    <use :xlink:href="iconName" />
+  </svg>
 </template>
 
 <script setup>
-defineProps({
-  //xlink:href属性值的前缀
-  prefix: {
+import { computed } from 'vue'
+
+const props = defineProps({
+  // icon 图标名称
+  icon: {
     type: String,
-    default: '#icon-',
+    required: true
   },
-  //svg矢量图的名字
-  name: String,
-  //svg图标的颜色
-  color: {
+  // 图标类名
+  className: {
     type: String,
-    default: '',
-  },
-  //svg宽度
-  width: {
-    type: String,
-    default: '16px',
-  },
-  //svg高度
-  height: {
-    type: String,
-    default: '16px',
-  },
+    default: ''
+  }
+})
+
+const iconName = computed(() => `#icon-${props.icon}`)
+const svgClass = computed(() => {
+  if (props.className) {
+    return 'svg-icon ' + props.className
+  }
+  return 'svg-icon'
 })
 </script>
-<style scoped></style>
+
+<style scoped>
+.svg-icon {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.15em;
+  fill: currentColor;
+  overflow: hidden;
+}
+</style>

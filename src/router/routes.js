@@ -52,7 +52,7 @@ export const constantRoute = [
   },
   {
     path: '/404',
-    component: () => import('@/views/404/index.vue'),
+    component: () => import('@/views/404/404View.vue'),
     name: '404', // 命名路由(做路由权限用的)
     meta: {
       title: '404',
