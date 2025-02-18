@@ -1,36 +1,45 @@
 import request from '@/utils/request'
 
-// 获取菜单树
-export const reqMenuTree = () => {
+// 获取菜单列表
+export const getMenuListAPI = () => {
     return request({
-        url: '/menu/tree',
+        url: '/acl/menu/list',
         method: 'get'
     })
 }
 
 // 添加菜单
-export const reqAddMenu = (data) => {
+export const addMenuAPI = (data) => {
     return request({
-        url: '/menu/add',
+        url: '/acl/menu/add',
         method: 'post',
         data
     })
 }
 
 // 更新菜单
-export const reqUpdateMenu = (data) => {
+export const updateMenuAPI = (menuId, data) => {
     return request({
-        url: '/menu/update',
+        url: `/acl/menu/${menuId}`,
         method: 'put',
         data
     })
 }
 
 // 删除菜单
-export const reqDeleteMenu = (menuId) => {
+export const deleteMenuAPI = (menuId) => {
     return request({
-        url: `/menu/${menuId}`,
+        url: `/acl/menu/${menuId}`,
         method: 'delete'
+    })
+}
+
+// 更新菜单状态
+export const updateMenuStatusAPI = (menuId, status) => {
+    return request({
+        url: `/acl/menu/${menuId}/status`,
+        method: 'put',
+        data: { status }
     })
 }
 

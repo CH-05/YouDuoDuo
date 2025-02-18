@@ -94,18 +94,24 @@ export const useUserStore = defineStore('user', {
           const labels = this.extractLabels(routes)
           console.log('提取的路由标签:', labels)
 
-          const userAsyncRoute = filterAsyncRoute(
-            cloneDeep(asyncRoute),
-            labels
-          )
-          
-          const finalRoutes = [...constantRoute, ...userAsyncRoute, ...anyRoute]
-          this.menuRoutes = finalRoutes
+          // 根据用户角色处理路由
+          let userAsyncRoute = []
+          if (this.role.id <= 2) { // 超级管理员和管理员可以访问所有路由
+            userAsyncRoute = cloneDeep(asyncRoute)
+          } else {
+            userAsyncRoute = filterAsyncRoute(
+              cloneDeep(asyncRoute),
+              labels
+            )
+          }
           
           // 添加动态路由
-          userAsyncRoute.forEach((route) => {
+          [...userAsyncRoute, ...anyRoute].forEach((route) => {
             router.addRoute(route)
           })
+          
+          // 更新菜单路由
+          this.menuRoutes = [...constantRoute, ...userAsyncRoute]
           
           return 'ok'
         } else {

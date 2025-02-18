@@ -96,7 +96,7 @@ export const asyncRoute = [
       },
       {
         path: '/acl/permission',
-        component: () => import('@/views/acl/PermissionView.vue'),
+        component: () => import('@/views/acl/MenuView.vue'),
         name: 'Permission',
         meta: {
           title: '菜单管理',

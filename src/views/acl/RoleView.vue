@@ -107,11 +107,11 @@ const getRoleList = async () => {
     }
 
     let res = await getRoleListAPI(pageNo.value, pageSize.value, keyword.value);
-    if (res.code === 200) {
+    if (res.code === 200 && res.data && res.data.records) {
       tableData.value = res.data.records.map((item) => ({
         ...item,
-        created_at: moment(item.created_at).format("YYYY-MM-DD HH:mm:ss"),
-        updated_at: moment(item.updated_at).format("YYYY-MM-DD HH:mm:ss")
+        created_at: item.created_at ? moment(item.created_at).format("YYYY-MM-DD HH:mm:ss") : '-',
+        updated_at: item.updated_at ? moment(item.updated_at).format("YYYY-MM-DD HH:mm:ss") : '-'
       }));
       total.value = res.data.total;
     } else {
@@ -119,10 +119,14 @@ const getRoleList = async () => {
         type: 'error',
         message: res.message || '获取角色列表失败'
       })
+      tableData.value = [];
+      total.value = 0;
     }
   } catch (error) {
     console.error('获取角色列表失败:', error);
     ElMessage.error('获取角色列表失败');
+    tableData.value = [];
+    total.value = 0;
   } finally {
     loading.value = false;
   }

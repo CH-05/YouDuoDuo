@@ -2,7 +2,13 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
-import { reqMenuTree, reqAddMenu, reqUpdateMenu, reqDeleteMenu } from '@/api/acl/menu'
+import {
+  getMenuListAPI,
+  addMenuAPI,
+  updateMenuAPI,
+  deleteMenuAPI,
+  updateMenuStatusAPI
+} from '@/api/acl/menu'
 
 // 状态定义
 const loading = ref(false)
@@ -54,10 +60,15 @@ const rules = {
 const getMenuTree = async () => {
   try {
     loading.value = true
-    const res = await reqMenuTree()
-    menuTree.value = res.data
+    const res = await getMenuListAPI()
+    if (res.code === 200) {
+      menuTree.value = res.data
+    } else {
+      ElMessage.error(res.message || '获取菜单树失败')
+    }
   } catch (error) {
     console.error('获取菜单树失败:', error)
+    ElMessage.error('获取菜单树失败')
   } finally {
     loading.value = false
   }
@@ -122,7 +133,7 @@ const deleteMenu = async (row) => {
     await ElMessageBox.confirm(`确定删除菜单 ${row.menu_name} 吗？`, '提示', {
       type: 'warning'
     })
-    await reqDeleteMenu(row.menu_id)
+    await deleteMenuAPI(row.menu_id)
     ElMessage.success('删除成功')
     getMenuTree()
   } catch (error) {
@@ -151,10 +162,10 @@ const submitForm = async () => {
       }
       
       if (menuForm.menu_id) {
-        await reqUpdateMenu(formData)
+        await updateMenuAPI(menuForm.menu_id, formData)
         ElMessage.success('更新成功')
       } else {
-        await reqAddMenu(formData)
+        await addMenuAPI(formData)
         ElMessage.success('添加成功')
       }
       dialogVisible.value = false
@@ -176,6 +187,84 @@ const handleMenuTypeChange = (type) => {
     menuForm.component = 'Layout'
   } else {
     menuForm.component = ''
+  }
+}
+
+// 获取菜单列表
+const getMenuList = async () => {
+  try {
+    const res = await getMenuListAPI()
+    if (res.code === 200) {
+      menuTree.value = res.data
+    } else {
+      ElMessage.error(res.message || '获取菜单列表失败')
+    }
+  } catch (error) {
+    console.error('获取菜单列表错误:', error)
+    ElMessage.error('获取菜单列表失败')
+  }
+}
+
+// 添加菜单
+const handleAddMenu = async (formData) => {
+  try {
+    const res = await addMenuAPI(formData)
+    if (res.code === 200) {
+      ElMessage.success('添加成功')
+      getMenuList()
+    } else {
+      ElMessage.error(res.message || '添加失败')
+    }
+  } catch (error) {
+    console.error('添加菜单错误:', error)
+    ElMessage.error('添加失败')
+  }
+}
+
+// 更新菜单
+const handleUpdateMenu = async (menuId, formData) => {
+  try {
+    const res = await updateMenuAPI(menuId, formData)
+    if (res.code === 200) {
+      ElMessage.success('更新成功')
+      getMenuList()
+    } else {
+      ElMessage.error(res.message || '更新失败')
+    }
+  } catch (error) {
+    console.error('更新菜单错误:', error)
+    ElMessage.error('更新失败')
+  }
+}
+
+// 删除菜单
+const handleDeleteMenu = async (menuId) => {
+  try {
+    const res = await deleteMenuAPI(menuId)
+    if (res.code === 200) {
+      ElMessage.success('删除成功')
+      getMenuList()
+    } else {
+      ElMessage.error(res.message || '删除失败')
+    }
+  } catch (error) {
+    console.error('删除菜单错误:', error)
+    ElMessage.error('删除失败')
+  }
+}
+
+// 更新菜单状态
+const handleStatusChange = async (menuId, status) => {
+  try {
+    const res = await updateMenuStatusAPI(menuId, status)
+    if (res.code === 200) {
+      ElMessage.success('状态更新成功')
+    } else {
+      ElMessage.error(res.message || '状态更新失败')
+    }
+  } catch (error) {
+    console.error('更新状态错误:', error)
+    ElMessage.error('更新状态失败')
   }
 }
 
