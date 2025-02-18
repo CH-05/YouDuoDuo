@@ -12,12 +12,48 @@
       :data="menuList"
       row-key="id"
       border
+      default-expand-all
       :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
       style="width: 100%; margin-top: 20px;"
       v-loading="loading"
     >
-      <el-table-column prop="name" label="菜单名称" min-width="180" show-overflow-tooltip />
-      <el-table-column prop="label" label="菜单标识" min-width="180" show-overflow-tooltip />
+      <el-table-column prop="name" label="菜单名称" min-width="200">
+        <template #default="{ row }">
+          <span :style="{ marginLeft: (row.level - 1) * 20 + 'px' }">
+            <el-icon v-if="row.level === 1"><Menu /></el-icon>
+            <el-icon v-else-if="row.level === 2"><List /></el-icon>
+            <el-icon v-else><Operation /></el-icon>
+            {{ row.name }}
+          </span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="label" label="菜单标识" min-width="180">
+        <template #default="{ row }">
+          <el-tag :type="row.level === 1 ? 'primary' : row.level === 2 ? 'warning' : 'info'">
+            {{ row.label }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="path" label="路由路径" min-width="180">
+        <template #default="{ row }">
+          <el-tag type="success" v-if="row.path">{{ row.path }}</el-tag>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="component" label="组件路径" min-width="180">
+        <template #default="{ row }">
+          <el-tooltip 
+            :content="row.component || '-'" 
+            placement="top" 
+            :show-after="500"
+          >
+            <el-tag type="info" v-if="row.component">
+              {{ row.component.split('/').pop() }}
+            </el-tag>
+            <span v-else>-</span>
+          </el-tooltip>
+        </template>
+      </el-table-column>
       <el-table-column prop="level" label="菜单级别" width="100">
         <template #default="{ row }">
           <el-tag :type="row.level === 1 ? 'success' : row.level === 2 ? 'warning' : 'info'">
@@ -35,7 +71,7 @@
           />
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column label="操作" width="250" fixed="right">
         <template #default="{ row }">
           <el-button-group>
             <el-button
@@ -87,6 +123,16 @@
         <el-form-item label="菜单标识" prop="label">
           <el-input v-model="menuForm.label" placeholder="请输入菜单标识" />
         </el-form-item>
+        <el-form-item label="路由路径" prop="path">
+          <el-input v-model="menuForm.path" placeholder="请输入路由路径">
+            <template #prefix v-if="menuForm.level !== 1">/</template>
+          </el-input>
+        </el-form-item>
+        <el-form-item label="组件路径" prop="component">
+          <el-input v-model="menuForm.component" placeholder="请输入组件路径">
+            <template #prefix>@/views/</template>
+          </el-input>
+        </el-form-item>
         <el-form-item label="菜单级别" prop="level">
           <el-input v-model="menuForm.level" disabled />
         </el-form-item>
@@ -110,8 +156,9 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Plus, Edit, Delete } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Menu, List, Operation } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { constantRoute, asyncRoute, anyRoute } from '@/router/routes'
 import {
   getMenuListAPI,
   addMenuAPI,
@@ -133,6 +180,8 @@ const menuForm = ref({
   id: null,
   name: '',
   label: '',
+  path: '',
+  component: '',
   level: 1,
   parent_id: 0,
   status: 1
@@ -147,37 +196,72 @@ const rules = {
   label: [
     { required: true, message: '请输入菜单标识', trigger: 'blur' },
     { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
+  ],
+  path: [
+    { required: true, message: '请输入路由路径', trigger: 'blur' }
+  ],
+  component: [
+    { required: true, message: '请输入组件路径', trigger: 'blur' }
   ]
+}
+
+// 处理路由数据为树形结构
+const processRoutes = (routes) => {
+  return routes.map(route => {
+    const processedRoute = {
+      id: route.name || route.path,
+      name: route.meta?.title || route.name || route.path,
+      label: route.name || '',
+      path: route.path,
+      component: route.component?.name || (typeof route.component === 'function' ? '() => import(...)' : route.component),
+      level: 1,
+      status: 1,
+      children: []
+    }
+    
+    if (route.children && route.children.length > 0) {
+      processedRoute.children = route.children.map(child => ({
+        id: child.name || child.path,
+        name: child.meta?.title || child.name || child.path,
+        label: child.name || '',
+        path: child.path,
+        component: child.component?.name || (typeof child.component === 'function' ? '() => import(...)' : child.component),
+        level: 2,
+        status: 1
+      }))
+    }
+    
+    return processedRoute
+  })
 }
 
 // 获取菜单列表
 const getMenuList = async () => {
   try {
-    loading.value = true;
-    console.log('开始获取菜单列表...');
-    const res = await getMenuListAPI();
-    console.log('获取菜单列表响应:', res);
+    loading.value = true
+    console.log('开始获取菜单列表...')
     
+    // 1. 获取数据库中的菜单数据
+    const res = await getMenuListAPI()
     if (res.code === 200 && res.data) {
       // 确保数据是数组
-      const data = Array.isArray(res.data) ? res.data : [];
+      const dbMenus = Array.isArray(res.data) ? res.data : []
       // 处理数据，添加hasChildren属性
-      const processedData = data.map(item => ({
+      const processedDbMenus = dbMenus.map(item => ({
         ...item,
         hasChildren: item.children && item.children.length > 0
-      }));
-      menuList.value = processedData;
-      console.log('处理后的菜单列表数据:', menuList.value);
+      }))
+      menuList.value = processedDbMenus
     } else {
-      ElMessage.error(res.message || '获取菜单列表失败');
-      menuList.value = [];
+      ElMessage.error(res.message || '获取菜单列表失败')
+      menuList.value = []
     }
   } catch (error) {
-    console.error('获取菜单列表错误:', error);
-    ElMessage.error('获取菜单列表失败');
-    menuList.value = [];
+    console.error('获取菜单列表错误:', error)
+    ElMessage.error('获取菜单列表失败')
+    menuList.value = []
   } finally {
-    loading.value = false;
+    loading.value = false
   }
 }
 
@@ -188,6 +272,8 @@ const handleAdd = (row) => {
     id: null,
     name: '',
     label: '',
+    path: '',
+    component: '',
     level: row ? row.level + 1 : 1,
     parent_id: row ? row.id : 0,
     status: 1
@@ -287,6 +373,8 @@ const resetForm = () => {
     id: null,
     name: '',
     label: '',
+    path: '',
+    component: '',
     level: 1,
     parent_id: 0,
     status: 1
@@ -312,5 +400,16 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+:deep(.el-table__row) {
+  .el-icon {
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+}
+
+:deep(.el-tag) {
+  font-size: 13px;
 }
 </style> 
