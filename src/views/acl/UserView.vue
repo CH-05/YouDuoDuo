@@ -51,8 +51,8 @@ const userInfo = reactive({
 const validateUserName = (_rule, value, callback) => {
   if (!value) {
     callback(new Error('请输入用户名'))
-  } else if (value.trim().length < 5) {
-    callback(new Error('用户名至少为5位'))
+  } else if (value.trim().length < 3) {
+    callback(new Error('用户名至少为3位'))
   } else if (!/^[a-zA-Z0-9_]+$/.test(value)) {
     callback(new Error('用户名只能包含字母、数字和下划线'))
   } else {
@@ -65,8 +65,6 @@ const validatePassword = (_rule, value, callback) => {
     callback(new Error('请输入密码'))
   } else if (value.trim().length < 6) {
     callback(new Error('密码至少为6位'))
-  } else if (!/^[a-zA-Z0-9_@#$%^&*]+$/.test(value)) {
-    callback(new Error('密码只能包含字母、数字和特殊字符'))
   } else {
     callback()
   }
@@ -81,7 +79,7 @@ const validatePhone = (_rule, value, callback) => {
 }
 
 const validateEmail = (_rule, value, callback) => {
-  if (!value || /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/.test(value)) {
+  if (!value || /^[\w-]+(\.[\w-]+)*@[\w-]+(\.[\w-]+)+$/.test(value)) {
     callback()
   } else {
     callback(new Error('请输入正确的邮箱'))
@@ -91,10 +89,8 @@ const validateEmail = (_rule, value, callback) => {
 const validateNickname = (_rule, value, callback) => {
   if (!value) {
     callback(new Error('请输入昵称'))
-  } else if (value.length < 2 || value.length > 20) {
-    callback(new Error('昵称长度应在2-20个字符之间'))
-  } else if (!/^[\u4e00-\u9fa5_a-zA-Z0-9]+$/.test(value)) {
-    callback(new Error('昵称只能包含中文、英文、数字和下划线'))
+  } else if (value.length < 2) {
+    callback(new Error('昵称至少2个字符'))
   } else {
     callback()
   }
