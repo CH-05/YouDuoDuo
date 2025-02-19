@@ -1,10 +1,17 @@
-<script setup lang="ts">
+<script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete } from '@element-plus/icons-vue'
-import { reqSpuList, reqSpuDetail, reqSaveSpu, reqDeleteSpu } from '@/api/product/spu'
+import { Plus, Edit, Delete, Upload } from '@element-plus/icons-vue'
+import { 
+  reqSpuList, 
+  reqSpuDetail, 
+  reqSaveSpu, 
+  reqDeleteSpu,
+  reqTrademarkList,
+  reqSaleAttrList,
+  reqSaveSaleAttr
+} from '@/api/product/spu'
 import { reqCategoryList } from '@/api/product/attr'
-import { reqHasTrademarkAPI } from '@/api/product/trademark'
 import { useUserStore } from '@/stores/modules/user'
 
 // 状态定义
@@ -58,10 +65,13 @@ const getSpuList = async () => {
   try {
     loading.value = true
     const res = await reqSpuList(currentPage.value, pageSize.value, selectedCategory.value)
-    spuList.value = res.data.records
-    total.value = res.data.total
+    if (res.code === 200) {
+      spuList.value = res.data.records
+      total.value = res.data.total
+    }
   } catch (error) {
     console.error('获取SPU列表失败:', error)
+    ElMessage.error('获取SPU列表失败')
   } finally {
     loading.value = false
   }
@@ -71,30 +81,34 @@ const getSpuList = async () => {
 const getCategoryList = async () => {
   try {
     const res = await reqCategoryList()
-    categoryOptions.value = res.data
+    if (res.code === 200) {
+      categoryOptions.value = res.data
+    }
   } catch (error) {
     console.error('获取分类列表失败:', error)
+    ElMessage.error('获取分类列表失败')
   }
 }
 
 // 获取品牌列表
 const getTrademarkList = async () => {
   try {
-    const res = await reqHasTrademarkAPI(1, 100)
-    trademarkOptions.value = res.data.records
+    const res = await reqTrademarkList()
+    if (res.code === 200) {
+      trademarkOptions.value = res.data.records
+    }
   } catch (error) {
     console.error('获取品牌列表失败:', error)
+    ElMessage.error('获取品牌列表失败')
   }
 }
 
 // 处理分类变化
-const handleCategoryChange = (categoryId) => {
-  if (categoryId) {
-    currentPage.value = 1
+const handleCategoryChange = (value) => {
+  selectedCategory.value = value
+  spuForm.category_id = value
+  if (value) {
     getSpuList()
-  } else {
-    spuList.value = []
-    total.value = 0
   }
 }
 
@@ -111,10 +125,8 @@ const handleSizeChange = (val) => {
   getSpuList()
 }
 
-// 添加SPU
-const addSpu = () => {
-  dialogVisible.value = true
-  dialogTitle.value = '添加SPU'
+// 重置表单
+const resetForm = () => {
   Object.assign(spuForm, {
     spu_id: '',
     spu_name: '',
@@ -126,6 +138,17 @@ const addSpu = () => {
   })
 }
 
+// 添加SPU
+const addSpu = () => {
+  if (!selectedCategory.value) {
+    ElMessage.warning('请先选择分类')
+    return
+  }
+  dialogVisible.value = true
+  dialogTitle.value = '添加SPU'
+  resetForm()
+}
+
 // 编辑SPU
 const editSpu = async (row) => {
   dialogVisible.value = true
@@ -133,23 +156,37 @@ const editSpu = async (row) => {
   
   try {
     const res = await reqSpuDetail(row.spu_id)
-    Object.assign(spuForm, res.data)
+    if (res.code === 200) {
+      Object.assign(spuForm, res.data)
+    }
   } catch (error) {
     console.error('获取SPU详情失败:', error)
+    ElMessage.error('获取SPU详情失败')
   }
 }
 
 // 删除SPU
 const deleteSpu = async (row) => {
   try {
-    await reqDeleteSpu(row.spu_id)
-    ElMessage.success('删除成功')
-    if (spuList.value.length === 1 && currentPage.value > 1) {
-      currentPage.value--
+    await ElMessageBox.confirm(`确定删除 ${row.spu_name} 吗？`, '警告', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    const res = await reqDeleteSpu(row.spu_id)
+    if (res.code === 200) {
+      ElMessage.success('删除成功')
+      if (spuList.value.length === 1 && currentPage.value > 1) {
+        currentPage.value--
+      }
+      getSpuList()
     }
-    getSpuList()
   } catch (error) {
-    console.error('删除失败:', error)
+    if (error !== 'cancel') {
+      console.error('删除失败:', error)
+      ElMessage.error('删除失败')
+    }
   }
 }
 
@@ -160,7 +197,7 @@ const handlePictureCardPreview = (file) => {
 }
 
 const handleRemove = (file) => {
-  const index = spuForm.images.findIndex(img => img.img_url === file.url)
+  const index = spuForm.images.findIndex(img => img.image_url === file.url)
   if (index !== -1) {
     spuForm.images.splice(index, 1)
   }
@@ -169,12 +206,12 @@ const handleRemove = (file) => {
 const handleUploadSuccess = (response, uploadFile) => {
   if (response.code === 200) {
     spuForm.images.push({
-      img_name: uploadFile.name,
-      img_url: `http://localhost:3000${response.data}`
+      image_name: uploadFile.name,
+      image_url: response.data
     })
     ElMessage.success('上传成功')
   } else {
-    ElMessage.error(response.message || '上传失败')
+    ElMessage.error('上传失败')
   }
 }
 
@@ -196,58 +233,75 @@ const beforeUpload = (file) => {
 // 销售属性相关方法
 const addSaleAttr = () => {
   spuForm.saleAttrs.push({
-    attr_name: '',
-    attrValues: [],
-    inputVisible: false,
-    inputValue: ''
+    sale_attr_name: '',
+    sale_attr_value: ''
   })
 }
 
-const showInput = (index) => {
-  spuForm.saleAttrs[index].inputVisible = true
-  // 等待DOM更新后聚焦
-  setTimeout(() => {
-    document.querySelector('.sale-attr-item:last-child input')?.focus()
-  }, 0)
-}
-
-const handleInputConfirm = (index) => {
-  const attr = spuForm.saleAttrs[index]
-  if (attr.inputValue.trim()) {
-    attr.attrValues.push(attr.inputValue.trim())
-  }
-  attr.inputVisible = false
-  attr.inputValue = ''
-}
-
-const removeAttrValue = (attrIndex, valueIndex) => {
-  spuForm.saleAttrs[attrIndex].attrValues.splice(valueIndex, 1)
+const removeSaleAttr = (index) => {
+  spuForm.saleAttrs.splice(index, 1)
 }
 
 // 提交表单
 const submitForm = async () => {
   if (!formRef.value) return
   
-  await formRef.value.validate(async (valid) => {
-    if (!valid) {
-      ElMessage.error('请完善表单信息')
+  try {
+    await formRef.value.validate()
+    
+    // 验证图片
+    if (spuForm.images.length === 0) {
+      ElMessage.warning('请至少上传一张SPU图片')
       return
     }
     
-    try {
-      await reqSaveSpu(spuForm)
-      ElMessage.success(spuForm.spu_id ? '更新成功' : '添加成功')
+    // 验证销售属性
+    if (spuForm.saleAttrs.length === 0) {
+      ElMessage.warning('请至少添加一个销售属性')
+      return
+    }
+    
+    // 验证销售属性数据
+    for (const attr of spuForm.saleAttrs) {
+      if (!attr.sale_attr_name) {
+        ElMessage.warning('销售属性名称不能为空')
+        return
+      }
+      if (!attr.sale_attr_value) {
+        ElMessage.warning(`销售属性 "${attr.sale_attr_name}" 的属性值不能为空`)
+        return
+      }
+    }
+    
+    // 构造提交数据
+    const submitData = {
+      ...spuForm,
+      category_id: selectedCategory.value,
+      images: spuForm.images.map(img => ({
+        image_url: img.image_url,
+        image_name: img.image_name
+      })),
+      sale_attrs: spuForm.saleAttrs
+    }
+    
+    console.log('提交的数据:', submitData)
+    
+    const res = await reqSaveSpu(submitData)
+    if (res.code === 200) {
+      ElMessage.success(spuForm.spu_id ? '修改成功' : '添加成功')
       dialogVisible.value = false
       getSpuList()
-    } catch (error) {
-      console.error('保存失败:', error)
     }
-  })
+  } catch (error) {
+    console.error('提交失败:', error)
+    ElMessage.error('提交失败: ' + error.message)
+  }
 }
 
 // 对话框关闭处理
 const handleDialogClose = () => {
   formRef.value?.resetFields()
+  resetForm()
 }
 
 // 添加SKU
@@ -256,16 +310,16 @@ const addSku = (row) => {
   ElMessage.info('即将实现添加SKU功能')
 }
 
-onMounted(() => {
-  getCategoryList()
-  getTrademarkList()
+onMounted(async () => {
+  await getCategoryList()
+  await getTrademarkList()
 })
 </script>
 
 <template>
   <div class="spu-container">
     <el-card class="box-card">
-      <!-- 三级分类选择 -->
+      <!-- 分类选择 -->
       <el-form :inline="true" class="category-form">
         <el-form-item label="选择分类：">
           <el-select
@@ -301,10 +355,8 @@ onMounted(() => {
       >
         <el-table-column type="index" label="序号" width="80" align="center" />
         <el-table-column prop="spu_name" label="SPU名称" min-width="150" />
-        <el-table-column prop="description" label="描述" min-width="200" />
+        <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
         <el-table-column prop="trademark_name" label="品牌名称" width="120" />
-        <el-table-column prop="created_at" label="创建时间" width="180" />
-        <el-table-column prop="updated_at" label="更新时间" width="180" />
         <el-table-column label="操作" width="250" align="center">
           <template #default="{ row }">
             <el-button
@@ -321,15 +373,13 @@ onMounted(() => {
               @click="addSku(row)"
               title="添加SKU"
             />
-            <el-popconfirm
-              :title="`确定删除 ${row.spu_name} 吗？`"
-              width="250px"
-              @confirm="deleteSpu(row)"
-            >
-              <template #reference>
-                <el-button type="danger" :icon="Delete" circle />
-              </template>
-            </el-popconfirm>
+            <el-button
+              type="danger"
+              :icon="Delete"
+              circle
+              @click="deleteSpu(row)"
+              title="删除SPU"
+            />
           </template>
         </el-table-column>
       </el-table>
@@ -361,19 +411,13 @@ onMounted(() => {
         :rules="rules"
         label-width="100px"
       >
+        <!-- SPU基本信息 -->
         <el-form-item label="SPU名称" prop="spu_name">
-          <el-input
-            v-model="spuForm.spu_name"
-            placeholder="请输入SPU名称"
-            clearable
-          />
+          <el-input v-model="spuForm.spu_name" placeholder="请输入SPU名称" />
         </el-form-item>
+        
         <el-form-item label="品牌" prop="product_id">
-          <el-select
-            v-model="spuForm.product_id"
-            placeholder="请选择品牌"
-            clearable
-          >
+          <el-select v-model="spuForm.product_id" placeholder="请选择品牌" style="width: 100%">
             <el-option
               v-for="item in trademarkOptions"
               :key="item.product_id"
@@ -382,73 +426,57 @@ onMounted(() => {
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="描述" prop="description">
+        
+        <el-form-item label="描述">
           <el-input
             v-model="spuForm.description"
             type="textarea"
-            :rows="4"
+            :rows="3"
             placeholder="请输入SPU描述"
           />
         </el-form-item>
+
+        <!-- SPU图片上传 -->
         <el-form-item label="SPU图片">
           <el-upload
-            class="upload-demo"
             :action="uploadAction"
             :headers="uploadHeaders"
             list-type="picture-card"
-            :on-preview="handlePictureCardPreview"
-            :on-remove="handleRemove"
             :on-success="handleUploadSuccess"
+            :on-remove="handleRemove"
             :before-upload="beforeUpload"
-            multiple
           >
             <el-icon><Plus /></el-icon>
           </el-upload>
-          <el-dialog v-model="dialogImageVisible">
-            <img w-full :src="dialogImageUrl" alt="Preview Image" />
-          </el-dialog>
         </el-form-item>
+
+        <!-- 销售属性 -->
         <el-form-item label="销售属性">
-          <div class="sale-attr-list">
-            <div class="sale-attr-item" v-for="(attr, index) in spuForm.saleAttrs" :key="index">
-              <el-input
-                v-model="attr.attr_name"
-                placeholder="属性名"
-                style="width: 200px"
-              />
-              <el-tag
-                v-for="(value, valueIndex) in attr.attrValues"
-                :key="valueIndex"
-                closable
-                @close="removeAttrValue(index, valueIndex)"
-                style="margin: 0 5px"
-              >
-                {{ value }}
-              </el-tag>
-              <el-input
-                v-if="attr.inputVisible"
-                ref="InputRef"
-                v-model="attr.inputValue"
-                class="ml-1 w-20"
-                size="small"
-                @keyup.enter="handleInputConfirm(index)"
-                @blur="handleInputConfirm(index)"
-              />
-              <el-button
-                v-else
-                class="button-new-tag ml-1"
-                size="small"
-                @click="showInput(index)"
-              >
-                + 添加值
-              </el-button>
+          <div class="sale-attrs">
+            <div v-for="(attr, index) in spuForm.saleAttrs" :key="index" class="sale-attr-row">
+              <el-row :gutter="10">
+                <el-col :span="8">
+                  <el-input 
+                    v-model="attr.sale_attr_name" 
+                    placeholder="属性名称"
+                  />
+                </el-col>
+                <el-col :span="12">
+                  <el-input 
+                    v-model="attr.sale_attr_value" 
+                    placeholder="属性值"
+                  />
+                </el-col>
+                <el-col :span="4">
+                  <el-button type="danger" @click="removeSaleAttr(index)">删除</el-button>
+                </el-col>
+              </el-row>
             </div>
-            <el-button type="primary" @click="addSaleAttr">
-              添加销售属性
-            </el-button>
+            <el-button type="primary" @click="addSaleAttr" style="margin-top: 10px;">添加销售属性</el-button>
           </div>
         </el-form-item>
       </el-form>
+      
       <template #footer>
         <el-button @click="dialogVisible = false">取 消</el-button>
         <el-button type="primary" @click="submitForm">确 定</el-button>
@@ -475,29 +503,14 @@ onMounted(() => {
     justify-content: flex-end;
   }
 
-  .sale-attr-list {
-    .sale-attr-item {
-      display: flex;
-      align-items: center;
+  .sale-attrs {
+    .sale-attr-row {
       margin-bottom: 10px;
-      flex-wrap: wrap;
-      gap: 10px;
-
-      .el-tag {
-        margin-right: 5px;
+      
+      .el-row {
+        align-items: center;
       }
     }
-  }
-
-  :deep(.el-upload--picture-card) {
-    width: 100px;
-    height: 100px;
-    line-height: 100px;
-  }
-
-  :deep(.el-upload-list--picture-card .el-upload-list__item) {
-    width: 100px;
-    height: 100px;
   }
 }
 </style>
