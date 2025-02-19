@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Search } from '@element-plus/icons-vue'
 import { reqCategoryList, reqAttrList, reqAddOrUpdateAttr, reqDeleteAttr, reqAddCategory } from '@/api/product/attr'
@@ -12,6 +12,9 @@ const attrList = ref([]) // 属性列表
 const dialogVisible = ref(false)
 const dialogTitle = ref('添加属性')
 const formRef = ref(null)
+const inputRef = ref(null)
+const inputVisible = ref(false)
+const inputValue = ref('')
 
 // 添加分类相关的状态
 const categoryDialogVisible = ref(false)
@@ -34,7 +37,7 @@ const attrForm = reactive({
   id: '',
   attrName: '',
   categoryId: '',
-  attrValues: [{ value: '', isEdit: false }]
+  attrValues: []
 })
 
 // 表单验证规则
@@ -64,24 +67,18 @@ const getAttrList = async () => {
   if (!selectedCategory.value) return
   try {
     loading.value = true
-    // TODO: 调用获取属性列表的API
     const res = await reqAttrList(selectedCategory.value)
-    attrList.value = res.data
+    if (res.code === 200) {
+      attrList.value = res.data.records || []
+    } else {
+      ElMessage.error(res.message || '获取属性列表失败')
+    }
   } catch (error) {
     console.error('获取属性列表失败:', error)
+    ElMessage.error('获取属性列表失败')
   } finally {
     loading.value = false
   }
-}
-
-// 添加属性值输入框
-const addAttrValue = () => {
-  attrForm.attrValues.push({ value: '', isEdit: true })
-}
-
-// 删除属性值
-const deleteAttrValue = (index) => {
-  attrForm.attrValues.splice(index, 1)
 }
 
 // 添加属性
@@ -92,7 +89,7 @@ const addAttr = () => {
     id: '',
     attrName: '',
     categoryId: selectedCategory.value,
-    attrValues: [{ value: '', isEdit: true }]
+    attrValues: []
   })
 }
 
@@ -101,24 +98,25 @@ const editAttr = (row) => {
   dialogVisible.value = true
   dialogTitle.value = '编辑属性'
   Object.assign(attrForm, {
-    id: row.id,
-    attrName: row.attrName,
-    categoryId: row.categoryId,
-    attrValues: row.attrValues.map(value => ({
-      value,
-      isEdit: false
-    }))
+    id: row.attr_id,
+    attrName: row.attr_name,
+    categoryId: row.category_id,
+    attrValues: Array.isArray(row.attr_values) 
+      ? row.attr_values.map(value => ({
+          value: value.trim(),
+          isEdit: false
+        }))
+      : []
   })
 }
 
 // 删除属性
 const deleteAttr = async (row) => {
   try {
-    await ElMessageBox.confirm(`确定删除属性 ${row.attrName} 吗？`, '提示', {
+    await ElMessageBox.confirm(`确定删除属性 ${row.attr_name} 吗？`, '提示', {
       type: 'warning'
     })
-    // TODO: 调用删除属性的API
-    await reqDeleteAttr(row.id)
+    await reqDeleteAttr(row.attr_id)
     ElMessage.success('删除成功')
     getAttrList()
   } catch (error) {
@@ -154,16 +152,30 @@ const confirm = async () => {
     }
     
     try {
-      // TODO: 调用添加/修改属性的API
-      await reqAddOrUpdateAttr({
-        ...attrForm,
-        attrValues: values
-      })
-      ElMessage.success(attrForm.id ? '修改成功' : '添加成功')
-      dialogVisible.value = false
-      getAttrList()
+      loading.value = true
+      // 构造符合后端要求的数据格式
+      const submitData = {
+        attr_id: attrForm.id || undefined,
+        category_id: attrForm.categoryId,
+        attr_name: attrForm.attrName,
+        attr_values: values
+      }
+      
+      console.log('提交数据:', submitData)
+      
+      const res = await reqAddOrUpdateAttr(submitData)
+      if (res.code === 200) {
+        ElMessage.success(attrForm.id ? '修改成功' : '添加成功')
+        dialogVisible.value = false
+        getAttrList()
+      } else {
+        ElMessage.error(res.message || '操作失败')
+      }
     } catch (error) {
       console.error('操作失败:', error)
+      ElMessage.error(error.message || '操作失败')
+    } finally {
+      loading.value = false
     }
   })
 }
@@ -171,6 +183,10 @@ const confirm = async () => {
 // 取消操作
 const cancel = () => {
   dialogVisible.value = false
+  formRef.value?.resetFields()
+  attrForm.attrValues = []
+  inputVisible.value = false
+  inputValue.value = ''
 }
 
 // 监听分类变化
@@ -210,6 +226,37 @@ const confirmAddCategory = async () => {
       ElMessage.error('添加分类失败')
     }
   })
+}
+
+// 处理输入确认
+const handleInputConfirm = () => {
+  if (inputValue.value.trim()) {
+    if (!attrForm.attrValues.some(item => item.value === inputValue.value.trim())) {
+      attrForm.attrValues.push({ value: inputValue.value.trim(), isEdit: false })
+    } else {
+      ElMessage.warning('属性值不能重复')
+    }
+  }
+  inputVisible.value = false
+  inputValue.value = ''
+}
+
+// 添加属性值输入框
+const addAttrValue = () => {
+  if (inputVisible.value) {
+    handleInputConfirm()
+  }
+  inputVisible.value = true
+  nextTick(() => {
+    if (inputRef.value) {
+      inputRef.value.input.focus()
+    }
+  })
+}
+
+// 删除属性值
+const deleteAttrValue = (index) => {
+  attrForm.attrValues.splice(index, 1)
 }
 
 onMounted(() => {
@@ -259,11 +306,11 @@ onMounted(() => {
         style="margin-top: 20px"
       >
         <el-table-column type="index" label="序号" width="80" align="center" />
-        <el-table-column prop="attrName" label="属性名称" min-width="150" />
+        <el-table-column prop="attr_name" label="属性名称" min-width="150" />
         <el-table-column label="属性值" min-width="300">
           <template #default="{ row }">
             <el-tag
-              v-for="(value, index) in row.attrValues"
+              v-for="(value, index) in row.attr_values"
               :key="index"
               class="attr-tag"
             >
@@ -280,7 +327,7 @@ onMounted(() => {
               @click="editAttr(row)"
             />
             <el-popconfirm
-              :title="`确定删除 ${row.attrName} 属性吗？`"
+              :title="`确定删除 ${row.attr_name} 属性吗？`"
               width="250px"
               @confirm="deleteAttr(row)"
             >
@@ -340,7 +387,17 @@ onMounted(() => {
                 @click="deleteAttrValue(index)"
               />
             </div>
+            <div v-if="inputVisible" class="attr-value-item">
+              <el-input
+                ref="inputRef"
+                v-model="inputValue"
+                placeholder="请输入属性值"
+                @keyup.enter="handleInputConfirm"
+                @blur="handleInputConfirm"
+              />
+            </div>
             <el-button
+              v-else
               type="primary"
               :icon="Plus"
               @click="addAttrValue"
