@@ -1,11 +1,12 @@
 import request from '@/utils/request'
 
 // 获取分类列表
-export const reqCategoryList = () =>{
+export const reqCategoryList = () => {
+    console.log('发起获取分类列表请求')
     return request({
         url: '/product/category/list',
         method: 'get'
-      })
+    })
 } 
 
 // 获取属性列表

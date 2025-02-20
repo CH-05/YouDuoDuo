@@ -40,20 +40,23 @@ export default defineConfig(({ mode }) => {
     },
     // 优化代理配置
     server: {
-      port: 5173,
+      port: 5177,
       host: true,
-      // 添加错误处理
       cors: true,
       proxy: {
         '/api': {
           target: 'http://localhost:3000',
           changeOrigin: true,
           secure: false,
+          rewrite: (path) => path.replace(/^\/api/, ''),
           // 添加调试日志
           configure: (proxy, options) => {
             proxy.on('proxyReq', (proxyReq, req, res) => {
               console.log('代理请求:', req.method, req.url, '->',
                 `${options.target}${proxyReq.path}`);
+            });
+            proxy.on('error', (err, req, res) => {
+              console.error('代理错误:', err);
             });
           }
         },

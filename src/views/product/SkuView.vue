@@ -24,16 +24,21 @@ const dialogImageUrl = ref('')
 const dialogImageVisible = ref(false)
 const userStore = useUserStore()
 
+// 添加上传配置
+const uploadAction = '/api/product/sku/image/upload'
+const uploadHeaders = {
+  Authorization: `Bearer ${userStore.token}`
+}
+
 // SKU表单数据
 const skuForm = reactive({
   sku_id: '',
   spu_id: '',
   sku_name: '',
   sku_desc: '',
-  price: '',
-  weight: '',
-  stock: '',
-  category_id: '',
+  price: 0,
+  weight: 0,
+  stock: 0,
   product_id: '',
   images: [],
   attrValues: []
@@ -59,15 +64,41 @@ const rules = {
 const getSkuList = async () => {
   try {
     loading.value = true
-    const params = {}
-    if (selectedCategory.value) params.category_id = selectedCategory.value
-    if (selectedSpu.value) params.spu_id = selectedSpu.value
+    const params = {
+      page: currentPage.value,
+      limit: pageSize.value
+    }
     
+    if (selectedCategory.value) {
+      params.category_id = Number(selectedCategory.value)
+    }
+    if (selectedSpu.value) {
+      params.spu_id = Number(selectedSpu.value)
+    }
+    
+    console.log('获取SKU列表，请求参数:', {
+      url: '/product/sku/list',
+      method: 'get',
+      params
+    })
+
     const res = await reqSkuList(currentPage.value, pageSize.value, params)
-    skuList.value = res.data.records
-    total.value = res.data.total
+    console.log('SKU列表响应:', res)
+    
+    if (res.code === 200) {
+      skuList.value = res.data.records || []
+      total.value = res.data.total || 0
+    } else {
+      console.error('获取SKU列表失败:', res)
+      ElMessage.error(res.message || '获取SKU列表失败')
+      skuList.value = []
+      total.value = 0
+    }
   } catch (error) {
     console.error('获取SKU列表失败:', error)
+    ElMessage.error(error.message || '获取SKU列表失败')
+    skuList.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
@@ -77,9 +108,18 @@ const getSkuList = async () => {
 const getCategoryList = async () => {
   try {
     const res = await reqCategoryList()
-    categoryOptions.value = res.data
+    console.log('获取到的分类列表数据:', res)
+    if (res.code === 200) {
+      categoryOptions.value = res.data || []
+    } else {
+      console.error('获取分类列表失败:', res)
+      ElMessage.error(res.message || '获取分类列表失败')
+      categoryOptions.value = []
+    }
   } catch (error) {
     console.error('获取分类列表失败:', error)
+    ElMessage.error('获取分类列表失败')
+    categoryOptions.value = []
   }
 }
 
@@ -98,17 +138,43 @@ const getSpuList = async () => {
 }
 
 // 处理分类变化
-const handleCategoryChange = () => {
-  selectedSpu.value = ''
-  getSpuList()
-  getSkuList()
+const handleCategoryChange = async (value) => {
+  console.log('分类变化:', {
+    value,
+    type: typeof value,
+    selectedCategory: selectedCategory.value,
+    categoryInfo: value ? categoryOptions.value.find(item => item.id === value) : null
+  })
+  
+  if (!value) {
+    selectedCategory.value = ''
+    selectedSpu.value = ''
+    spuOptions.value = []
+    skuList.value = []
+    total.value = 0
+    return
+  }
+
+  try {
+    selectedSpu.value = ''
+    // 只获取SPU列表
+    await getSpuList()
+    // 清空SKU列表
+    skuList.value = []
+    total.value = 0
+  } catch (error) {
+    console.error('分类切换处理失败:', error)
+  }
 }
 
 // 处理SPU变化
-const handleSpuChange = () => {
+const handleSpuChange = async () => {
   if (selectedSpu.value) {
-    getSkuList()
-    getSpuSaleAttr()
+    await getSkuList()
+    await getSpuSaleAttr()
+  } else {
+    skuList.value = []
+    total.value = 0
   }
 }
 
@@ -151,10 +217,9 @@ const addSku = () => {
     spu_id: selectedSpu.value,
     sku_name: '',
     sku_desc: '',
-    price: '',
-    weight: '',
-    stock: '',
-    category_id: selectedCategory.value,
+    price: 0,
+    weight: 0,
+    stock: 0,
     product_id: '',
     images: [],
     attrValues: []
@@ -207,7 +272,28 @@ const handleRemove = (file) => {
   }
 }
 
-const handleUploadSuccess = (response, uploadFile) => {
+const beforeSkuUpload = (file) => {
+  const isImage = /^image\/(jpeg|png|gif|jpg)/.test(file.type)
+  const isLt2M = file.size / 1024 / 1024 < 2
+
+  if (!isImage) {
+    ElMessage.error('只能上传 JPG/PNG/GIF 格式的图片!')
+    return false
+  }
+  if (!isLt2M) {
+    ElMessage.error('图片大小不能超过 2MB!')
+    return false
+  }
+  
+  // 创建 FormData
+  const formData = new FormData()
+  formData.append('file', file)
+  
+  return true
+}
+
+const handleSkuUploadSuccess = (response, uploadFile) => {
+  console.log('图片上传响应:', response)
   if (response.code === 200) {
     skuForm.images.push({
       img_name: uploadFile.name,
@@ -216,8 +302,14 @@ const handleUploadSuccess = (response, uploadFile) => {
     })
     ElMessage.success('上传成功')
   } else {
+    console.error('上传失败:', response)
     ElMessage.error(response.message || '上传失败')
   }
+}
+
+const handleSkuUploadError = (error, file) => {
+  console.error('图片上传错误:', error)
+  ElMessage.error('图片上传失败，请重试')
 }
 
 // 提交表单
@@ -422,20 +514,23 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="图片">
           <el-upload
-            action="/api/product/sku/image/upload"
-            :headers="{
-              Authorization: `Bearer ${userStore.token}`
-            }"
+            :action="uploadAction"
+            :headers="uploadHeaders"
             list-type="picture-card"
             :on-preview="handlePictureCardPreview"
             :on-remove="handleRemove"
-            :on-success="handleUploadSuccess"
+            :on-success="handleSkuUploadSuccess"
+            :on-error="handleSkuUploadError"
+            :before-upload="beforeSkuUpload"
+            :show-file-list="true"
+            name="file"
+            accept="image/jpeg,image/png,image/gif,image/jpg"
             multiple
           >
             <el-icon><Plus /></el-icon>
           </el-upload>
           <el-dialog v-model="dialogImageVisible">
-            <img w-full :src="dialogImageUrl" alt="Preview Image" />
+            <img w-full :src="dialogImageUrl" alt="Preview Image" style="max-width: 100%" />
           </el-dialog>
         </el-form-item>
         <el-form-item

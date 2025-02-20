@@ -12,6 +12,7 @@ import {
   reqSaveSaleAttr
 } from '@/api/product/spu'
 import { reqCategoryList } from '@/api/product/attr'
+import { reqSaveSku, reqSpuSaleAttr } from '@/api/product/sku'
 import { useUserStore } from '@/stores/modules/user'
 
 // 状态定义
@@ -28,6 +29,8 @@ const dialogTitle = ref('添加SPU')
 const formRef = ref(null)
 const dialogImageUrl = ref('')
 const dialogImageVisible = ref(false)
+const skuDialogVisible = ref(false)
+const skuFormRef = ref(null)
 const userStore = useUserStore()
 
 // SPU表单数据
@@ -56,6 +59,46 @@ const rules = {
 const uploadAction = 'http://localhost:3000/product/spu/image/upload'
 const uploadHeaders = {
   Authorization: `Bearer ${userStore.token}`
+}
+
+// SKU上传配置
+const skuUploadAction = 'http://localhost:3000/product/sku/image/upload'
+const skuUploadHeaders = {
+  Authorization: `Bearer ${userStore.token}`
+}
+
+// SKU表单数据
+const skuForm = reactive({
+  sku_name: '',
+  price: '',
+  weight: '',
+  stock: '',
+  sku_desc: '',
+  spu_id: '',
+  category_id: '',
+  product_id: '',
+  images: [],
+  attrValues: []
+})
+
+// SKU表单验证规则
+const skuRules = {
+  sku_name: [
+    { required: true, message: '请输入SKU名称', trigger: 'blur' },
+    { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
+  ],
+  price: [
+    { required: true, message: '请输入价格', trigger: 'blur' },
+    { pattern: /^\d+(\.\d{1,2})?$/, message: '请输入正确的价格格式', trigger: 'blur' }
+  ],
+  weight: [
+    { required: true, message: '请输入重量', trigger: 'blur' },
+    { pattern: /^\d+(\.\d{1,2})?$/, message: '请输入正确的重量格式', trigger: 'blur' }
+  ],
+  stock: [
+    { required: true, message: '请输入库存', trigger: 'blur' },
+    { pattern: /^\d+$/, message: '请输入正确的库存数量', trigger: 'blur' }
+  ]
 }
 
 // 获取SPU列表
@@ -233,11 +276,12 @@ const beforeUpload = (file) => {
 // 销售属性相关方法
 const addSaleAttr = () => {
   spuForm.saleAttrs.push({
-    sale_attr_name: '',
-    sale_attr_value: ''
+    attr_name: '',
+    attr_value: ''
   })
 }
 
+// 删除销售属性
 const removeSaleAttr = (index) => {
   spuForm.saleAttrs.splice(index, 1)
 }
@@ -263,12 +307,12 @@ const submitForm = async () => {
     
     // 验证销售属性数据
     for (const attr of spuForm.saleAttrs) {
-      if (!attr.sale_attr_name) {
+      if (!attr.attr_name) {
         ElMessage.warning('销售属性名称不能为空')
         return
       }
-      if (!attr.sale_attr_value) {
-        ElMessage.warning(`销售属性 "${attr.sale_attr_name}" 的属性值不能为空`)
+      if (!attr.attr_value) {
+        ElMessage.warning(`销售属性 "${attr.attr_name}" 没有属性值`)
         return
       }
     }
@@ -281,7 +325,10 @@ const submitForm = async () => {
         image_url: img.image_url,
         image_name: img.image_name
       })),
-      sale_attrs: spuForm.saleAttrs
+      sale_attrs: spuForm.saleAttrs.map(attr => ({
+        attr_name: attr.attr_name,
+        attr_value: attr.attr_value
+      }))
     }
     
     console.log('提交的数据:', submitData)
@@ -305,9 +352,152 @@ const handleDialogClose = () => {
 }
 
 // 添加SKU
-const addSku = (row) => {
-  // TODO: 实现添加SKU的功能
-  ElMessage.info('即将实现添加SKU功能')
+const addSku = async (row) => {
+  try {
+    console.log('添加SKU，SPU信息:', row)
+    skuDialogVisible.value = true
+    // 重置表单
+    Object.assign(skuForm, {
+      sku_name: '',
+      price: '',
+      weight: '',
+      stock: '',
+      sku_desc: '',
+      spu_id: row.spu_id,
+      category_id: selectedCategory.value,
+      product_id: row.product_id,
+      images: [],
+      attrValues: []
+    })
+    
+    // 获取SPU销售属性
+    const res = await reqSpuSaleAttr(row.spu_id)
+    console.log('获取SPU销售属性响应:', res)
+    
+    if (res.code === 200 && res.data) {
+      // 处理销售属性数据
+      skuForm.attrValues = res.data.map(attr => ({
+        spu_sale_attr_id: attr.attr_id,
+        attr_name: attr.attr_name,
+        spu_sale_attr_value_id: '',
+        attr_values: attr.attr_values || []
+      }))
+      
+      console.log('处理后的销售属性:', skuForm.attrValues)
+    } else {
+      ElMessage.warning('获取销售属性失败')
+    }
+  } catch (error) {
+    console.error('初始化SKU表单失败:', error)
+    ElMessage.error('初始化SKU表单失败')
+  }
+}
+
+// SKU图片上传相关方法
+const handleSkuPictureCardPreview = (file) => {
+  dialogImageUrl.value = file.url
+  dialogImageVisible.value = true
+}
+
+const handleSkuRemove = (file) => {
+  const index = skuForm.images.findIndex(img => img.img_url === file.url)
+  if (index !== -1) {
+    skuForm.images.splice(index, 1)
+  }
+}
+
+const handleSkuUploadSuccess = (response, uploadFile) => {
+  console.log('图片上传响应:', response)
+  if (response.code === 200) {
+    skuForm.images.push({
+      img_name: uploadFile.name,
+      img_url: response.data,
+      is_default: skuForm.images.length === 0 ? 1 : 0
+    })
+    ElMessage.success('上传成功')
+  } else {
+    ElMessage.error(response.message || '上传失败')
+  }
+}
+
+const beforeSkuUpload = (file) => {
+  const isImage = /^image\/(jpeg|png|gif|jpg)/.test(file.type)
+  const isLt2M = file.size / 1024 / 1024 < 2
+
+  if (!isImage) {
+    ElMessage.error('只能上传 JPG/PNG/GIF 格式的图片!')
+    return false
+  }
+  if (!isLt2M) {
+    ElMessage.error('图片大小不能超过 2MB!')
+    return false
+  }
+  return true
+}
+
+// 提交SKU表单
+const submitSkuForm = async () => {
+  if (!skuFormRef.value) return
+  
+  try {
+    await skuFormRef.value.validate()
+    
+    // 验证图片
+    if (skuForm.images.length === 0) {
+      ElMessage.warning('请至少上传一张SKU图片')
+      return
+    }
+    
+    // 验证销售属性
+    for (const attr of skuForm.attrValues) {
+      if (!attr.spu_sale_attr_value_id) {
+        ElMessage.warning(`请选择${attr.attr_name}的值`)
+        return
+      }
+    }
+    
+    // 构造提交数据
+    const submitData = {
+      ...skuForm,
+      price: Number(skuForm.price),
+      weight: Number(skuForm.weight),
+      stock: Number(skuForm.stock)
+    }
+    
+    console.log('提交SKU数据:', submitData)
+    const res = await reqSaveSku(submitData)
+    if (res.code === 200) {
+      ElMessage.success('添加SKU成功')
+      skuDialogVisible.value = false
+    }
+  } catch (error) {
+    console.error('添加SKU失败:', error)
+    ElMessage.error('添加SKU失败')
+  }
+}
+
+// SKU对话框关闭处理
+const handleSkuDialogClose = () => {
+  skuFormRef.value?.resetFields()
+  Object.assign(skuForm, {
+    sku_name: '',
+    price: '',
+    weight: '',
+    stock: '',
+    sku_desc: '',
+    spu_id: '',
+    category_id: '',
+    product_id: '',
+    images: [],
+    attrValues: []
+  })
+}
+
+// 处理属性值失去焦点
+const handleAttrValueBlur = (value) => {
+  if (!value.value_name.trim()) {
+    ElMessage.warning('属性值不能为空')
+  }
 }
 
 onMounted(async () => {
@@ -453,26 +643,20 @@ onMounted(async () => {
         <!-- 销售属性 -->
         <el-form-item label="销售属性">
           <div class="sale-attrs">
-            <div v-for="(attr, index) in spuForm.saleAttrs" :key="index" class="sale-attr-row">
-              <el-row :gutter="10">
-                <el-col :span="8">
-                  <el-input 
-                    v-model="attr.sale_attr_name" 
-                    placeholder="属性名称"
-                  />
-                </el-col>
-                <el-col :span="12">
-                  <el-input 
-                    v-model="attr.sale_attr_value" 
-                    placeholder="属性值"
-                  />
-                </el-col>
-                <el-col :span="4">
-                  <el-button type="danger" @click="removeSaleAttr(index)">删除</el-button>
-                </el-col>
-              </el-row>
+            <div v-for="(attr, index) in spuForm.saleAttrs" :key="index" style="margin-bottom: 10px">
+              <el-input 
+                v-model="attr.attr_name" 
+                placeholder="属性名称"
+                style="width: 150px; margin-right: 10px"
+              />
+              <el-input 
+                v-model="attr.attr_value" 
+                placeholder="属性值（多个值用逗号分隔）"
+                style="width: 300px; margin-right: 10px"
+              />
+              <el-button type="danger" @click="removeSaleAttr(index)">删除</el-button>
             </div>
-            <el-button type="primary" @click="addSaleAttr" style="margin-top: 10px;">添加销售属性</el-button>
+            <el-button type="primary" @click="addSaleAttr">添加销售属性</el-button>
           </div>
         </el-form-item>
       </el-form>
@@ -480,6 +664,104 @@ onMounted(async () => {
       <template #footer>
         <el-button @click="dialogVisible = false">取 消</el-button>
         <el-button type="primary" @click="submitForm">确 定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- SKU表单对话框 -->
+    <el-dialog
+      v-model="skuDialogVisible"
+      title="添加SKU"
+      width="700px"
+      @close="handleSkuDialogClose"
+    >
+      <el-form
+        ref="skuFormRef"
+        :model="skuForm"
+        :rules="skuRules"
+        label-width="100px"
+      >
+        <el-form-item label="SKU名称" prop="sku_name">
+          <el-input
+            v-model="skuForm.sku_name"
+            placeholder="请输入SKU名称"
+            clearable
+          />
+        </el-form-item>
+        <el-form-item label="价格" prop="price">
+          <el-input-number
+            v-model="skuForm.price"
+            :precision="2"
+            :step="0.1"
+            :min="0"
+            style="width: 200px"
+          />
+          <span class="unit">元</span>
+        </el-form-item>
+        <el-form-item label="重量" prop="weight">
+          <el-input-number
+            v-model="skuForm.weight"
+            :precision="2"
+            :step="0.1"
+            :min="0"
+            style="width: 200px"
+          />
+          <span class="unit">kg</span>
+        </el-form-item>
+        <el-form-item label="库存" prop="stock">
+          <el-input-number
+            v-model="skuForm.stock"
+            :min="0"
+            :precision="0"
+            style="width: 200px"
+          />
+        </el-form-item>
+        <el-form-item label="描述" prop="sku_desc">
+          <el-input
+            v-model="skuForm.sku_desc"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入SKU描述"
+          />
+        </el-form-item>
+        <el-form-item label="图片">
+          <el-upload
+            :action="skuUploadAction"
+            :headers="skuUploadHeaders"
+            list-type="picture-card"
+            :on-preview="handleSkuPictureCardPreview"
+            :on-remove="handleSkuRemove"
+            :on-success="handleSkuUploadSuccess"
+            :before-upload="beforeSkuUpload"
+            multiple
+          >
+            <el-icon><Plus /></el-icon>
+          </el-upload>
+          <el-dialog v-model="dialogImageVisible">
+            <img w-full :src="dialogImageUrl" alt="Preview Image" style="max-width: 100%" />
+          </el-dialog>
+        </el-form-item>
+        <el-form-item
+          v-for="(attr, index) in skuForm.attrValues"
+          :key="index"
+          :label="attr.attr_name"
+          required
+        >
+          <el-select
+            v-model="attr.spu_sale_attr_value_id"
+            placeholder="请选择属性值"
+          >
+            <el-option
+              v-for="value in attr.attr_values"
+              :key="value.value_id"
+              :label="value.value_name"
+              :value="value.value_id"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="skuDialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="submitSkuForm">确 定</el-button>
       </template>
     </el-dialog>
   </div>
@@ -503,14 +785,9 @@ onMounted(async () => {
     justify-content: flex-end;
   }
 
-  .sale-attrs {
-    .sale-attr-row {
-      margin-bottom: 10px;
-      
-      .el-row {
-        align-items: center;
-      }
-    }
+  .unit {
+    margin-left: 10px;
+    color: #666;
   }
 }
 </style>

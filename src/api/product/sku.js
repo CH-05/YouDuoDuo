@@ -2,13 +2,35 @@ import request from '@/utils/request'
 
 // 获取SKU列表
 export const reqSkuList = (page, limit, params = {}) => {
+    const { category_id, spu_id, ...restParams } = params
+    const queryParams = {
+        page,
+        limit,
+        ...restParams
+    }
+    
+    if (category_id !== undefined && category_id !== null && category_id !== '') {
+        queryParams.category_id = category_id
+    }
+    if (spu_id !== undefined && spu_id !== null && spu_id !== '') {
+        queryParams.spu_id = spu_id
+    }
+    
+    console.log('SKU列表请求最终参数:', {
+        url: '/product/sku/list',
+        method: 'get',
+        params: queryParams,
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    
     return request({
         url: '/product/sku/list',
         method: 'get',
-        params: {
-            page,
-            limit,
-            ...params
+        params: queryParams,
+        headers: {
+            'Content-Type': 'application/json'
         }
     })
 }
@@ -40,8 +62,9 @@ export const reqDeleteSku = (skuId) => {
 
 // 获取SPU的销售属性
 export const reqSpuSaleAttr = (spuId) => {
+    console.log('获取SPU销售属性，参数:', { spuId })
     return request({
-        url: `/product/sku/spuSaleAttr/${spuId}`,
+        url: `/product/spu/saleAttr/${spuId}`,
         method: 'get'
     })
 }
