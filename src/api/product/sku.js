@@ -80,3 +80,11 @@ export const uploadSkuImage = (data) => {
         }
     })
 }
+
+// 获取品牌下的SKU商品列表
+export const getSkuListByTrademark = (trademark_id) => {
+    return request({
+        url: `/product/sku/trademark/${trademark_id}`,
+        method: 'get'
+    })
+}

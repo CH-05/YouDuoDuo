@@ -624,16 +624,17 @@ const handleSearch = () => {
       </el-table-column>
     </el-table>
 
-    <!-- 分页 -->
+    <!-- 分页器 -->
     <div class="pagination-container">
       <el-pagination
-        v-model:current-page="pageNo"
-        v-model:page-size="pageSize"
-        :page-sizes="[10, 20, 50]"
-        :total="total"
-        layout="total, sizes, prev, pager, next"
-        @size-change="handleSizeChange"
-        @current-change="handleCurrentChange"
+          v-model:current-page="pageNo"
+          v-model:page-size="pageSize"
+          :page-sizes="[5, 10, 20, 30]"
+          :background="true"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="total"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
       />
     </div>
 

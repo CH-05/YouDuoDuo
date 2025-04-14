@@ -41,12 +41,13 @@ export const useUserStore = defineStore('user', {
           // 登录成功后立即获取用户信息
           await this.getUserInfo()
           return 'ok'
-        } else {
-          return Promise.reject(new Error(result.message))
         }
+        
+        console.error('登录失败:', result.message)
+        throw new Error(result.message || '登录失败')
       } catch (error) {
         console.error('登录失败:', error)
-        return Promise.reject(error)
+        throw error
       }
     },
     // 获取用户信息
@@ -114,12 +115,13 @@ export const useUserStore = defineStore('user', {
           this.menuRoutes = [...constantRoute, ...userAsyncRoute]
           
           return 'ok'
-        } else {
-          return Promise.reject(new Error(result.message))
-        }
+        } 
+        
+        console.error('获取用户信息失败:', result.message)
+        throw new Error(result.message || '获取用户信息失败')
       } catch (error) {
         console.error('获取用户信息失败:', error)
-        return Promise.reject(error)
+        throw error
       }
     },
     // 提取路由标签
@@ -159,8 +161,17 @@ export const useUserStore = defineStore('user', {
         resetRouter()
         return 'ok'
       } catch (error) {
-        console.error("退出登录失败:", error)
-        return Promise.reject(error)
+        console.error("退出登录失败", error)
+        // 即使API调用失败，也要清除本地状态
+        this.token = ''
+        this.userInfo = {}
+        this.username = ''
+        this.avatar = ''
+        this.role = { id: null, name: '' }
+        this.menuRoutes = constantRoute
+        localStorage.removeItem('token')
+        resetRouter()
+        throw error
       }
     },
     // 生成菜单的路由
@@ -175,12 +186,13 @@ export const useUserStore = defineStore('user', {
         const result = await registerAPI(data)
         if (result.code === 200) {
           return 'ok'
-        } else {
-          return Promise.reject(new Error(result.message))
         }
+        
+        console.error('注册失败:', result.message)
+        throw new Error(result.message || '注册失败')
       } catch (error) {
         console.error("注册失败:", error)
-        return Promise.reject(error)
+        throw error
       }
     }
   },

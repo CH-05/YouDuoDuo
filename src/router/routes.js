@@ -109,7 +109,7 @@ export const asyncRoute = [
   {
     path: '/product',
     component: () => import('@/layout/index.vue'),
-    name: 'Product', // 命名路由(做路由权限用的)
+    name: 'Product',
     meta: {
       title: '粮油管理',
       hidden: false,
@@ -155,6 +155,26 @@ export const asyncRoute = [
           title: 'SKU管理',
           hidden: false,
           icon: 'Orange',
+        },
+      },
+      {
+        path: '/product/purchase',
+        component: () => import('@/views/grainOil/purchase/index.vue'),
+        name: 'Purchase',
+        meta: {
+          title: '进货管理',
+          hidden: false,
+          icon: 'ShoppingCart',
+        },
+      },
+      {
+        path: '/product/sales',
+        component: () => import('@/views/grainOil/sales/index.vue'),
+        name: 'Sales',
+        meta: {
+          title: '销售管理',
+          hidden: false,
+          icon: 'Sell',
         },
       },
     ],

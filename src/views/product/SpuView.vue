@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Upload } from '@element-plus/icons-vue'
 import { 
@@ -32,6 +32,9 @@ const dialogImageVisible = ref(false)
 const skuDialogVisible = ref(false)
 const skuFormRef = ref(null)
 const userStore = useUserStore()
+const uploadRef = ref(null)
+const fileList = ref([])
+const skuUploadRef = ref(null)
 
 // SPU表单数据
 const spuForm = reactive({
@@ -187,24 +190,103 @@ const addSpu = () => {
     ElMessage.warning('请先选择分类')
     return
   }
+  
+  // 先重置表单和文件列表
+  resetForm()
+  fileList.value = []
+  
+  // 再打开对话框
   dialogVisible.value = true
   dialogTitle.value = '添加SPU'
-  resetForm()
+}
+
+// 修复图片URL的方法
+const fixImageUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http') || url.startsWith('blob')) {
+    return url;
+  }
+  
+  // 如果是相对路径，添加baseURL
+  return url.startsWith('/') ? `http://localhost:3000${url}` : `http://localhost:3000/${url}`;
 }
 
 // 编辑SPU
 const editSpu = async (row) => {
-  dialogVisible.value = true
-  dialogTitle.value = '编辑SPU'
-  
   try {
+    // 先重置表单，避免旧数据残留
+    resetForm()
+    
+    // 清空文件列表
+    fileList.value = []
+    
+    console.log('开始获取SPU详情，ID:', row.spu_id)
     const res = await reqSpuDetail(row.spu_id)
+    
     if (res.code === 200) {
-      Object.assign(spuForm, res.data)
+      // 确保销售属性数据格式正确
+      let formattedSaleAttrs = []
+      if (Array.isArray(res.data.sale_attrs)) {
+        formattedSaleAttrs = res.data.sale_attrs.map(attr => ({
+          attr_id: attr.attr_id,
+          attr_name: attr.attr_name,
+          attr_value: attr.attr_value || ''
+        }))
+      }
+      
+      // 确保图片格式正确
+      let formattedImages = []
+      if (Array.isArray(res.data.images)) {
+        formattedImages = res.data.images.map(img => {
+          return {
+            image_id: img.image_id,
+            image_name: img.image_name || '图片',
+            image_url: fixImageUrl(img.image_url)
+          };
+        });
+      }
+      
+      // 直接设置文件列表
+      fileList.value = formattedImages.map(img => ({
+        name: img.image_name || '图片',
+        url: img.image_url,
+        status: 'success'
+      }));
+      
+      // 将数据赋值给表单
+      Object.assign(spuForm, {
+        spu_id: res.data.spu_id,
+        spu_name: res.data.spu_name,
+        description: res.data.description || '',
+        category_id: res.data.category_id,
+        product_id: res.data.product_id,
+        images: formattedImages,
+        saleAttrs: formattedSaleAttrs
+      })
+      
+      // 确保分类和品牌已加载
+      if (!categoryOptions.value.length) {
+        await getCategoryList()
+      }
+      
+      if (!trademarkOptions.value.length) {
+        await getTrademarkList()
+      }
+      
+      // 如果没有设置选中分类，手动设置
+      if (!selectedCategory.value) {
+        selectedCategory.value = res.data.category_id
+      }
+      
+      // 最后打开对话框
+      dialogVisible.value = true
+      dialogTitle.value = '编辑SPU'
+    } else {
+      ElMessage.error(res.message || '获取SPU详情失败')
     }
   } catch (error) {
     console.error('获取SPU详情失败:', error)
-    ElMessage.error('获取SPU详情失败')
+    ElMessage.error('获取SPU详情失败: ' + (error.message || '未知错误'))
   }
 }
 
@@ -235,8 +317,8 @@ const deleteSpu = async (row) => {
 
 // 图片上传相关方法
 const handlePictureCardPreview = (file) => {
-  dialogImageUrl.value = file.url
-  dialogImageVisible.value = true
+  dialogImageUrl.value = fixImageUrl(file.url);
+  dialogImageVisible.value = true;
 }
 
 const handleRemove = (file) => {
@@ -248,13 +330,16 @@ const handleRemove = (file) => {
 
 const handleUploadSuccess = (response, uploadFile) => {
   if (response.code === 200) {
+    // 确保URL是完整的
+    const imageUrl = fixImageUrl(response.data);
+    
     spuForm.images.push({
       image_name: uploadFile.name,
-      image_url: response.data
-    })
-    ElMessage.success('上传成功')
+      image_url: imageUrl
+    });
+    ElMessage.success('上传成功');
   } else {
-    ElMessage.error('上传失败')
+    ElMessage.error(response.message || '上传失败');
   }
 }
 
@@ -270,6 +355,7 @@ const beforeUpload = (file) => {
     ElMessage.error('图片大小不能超过 2MB!')
     return false
   }
+  
   return true
 }
 
@@ -347,14 +433,18 @@ const submitForm = async () => {
 
 // 对话框关闭处理
 const handleDialogClose = () => {
-  formRef.value?.resetFields()
+  // 重置表单
   resetForm()
+  // 清空文件列表
+  fileList.value = []
+  if (uploadRef.value) {
+    uploadRef.value.clearFiles()
+  }
 }
 
 // 添加SKU
 const addSku = async (row) => {
   try {
-    console.log('添加SKU，SPU信息:', row)
     skuDialogVisible.value = true
     // 重置表单
     Object.assign(skuForm, {
@@ -372,7 +462,6 @@ const addSku = async (row) => {
     
     // 获取SPU销售属性
     const res = await reqSpuSaleAttr(row.spu_id)
-    console.log('获取SPU销售属性响应:', res)
     
     if (res.code === 200 && res.data) {
       // 处理销售属性数据
@@ -382,8 +471,6 @@ const addSku = async (row) => {
         spu_sale_attr_value_id: '',
         attr_values: attr.attr_values || []
       }))
-      
-      console.log('处理后的销售属性:', skuForm.attrValues)
     } else {
       ElMessage.warning('获取销售属性失败')
     }
@@ -395,8 +482,8 @@ const addSku = async (row) => {
 
 // SKU图片上传相关方法
 const handleSkuPictureCardPreview = (file) => {
-  dialogImageUrl.value = file.url
-  dialogImageVisible.value = true
+  dialogImageUrl.value = fixImageUrl(file.url);
+  dialogImageVisible.value = true;
 }
 
 const handleSkuRemove = (file) => {
@@ -407,11 +494,13 @@ const handleSkuRemove = (file) => {
 }
 
 const handleSkuUploadSuccess = (response, uploadFile) => {
-  console.log('图片上传响应:', response)
   if (response.code === 200) {
+    // 确保URL是完整的
+    const imageUrl = fixImageUrl(response.data);
+    
     skuForm.images.push({
       img_name: uploadFile.name,
-      img_url: response.data,
+      img_url: imageUrl,
       is_default: skuForm.images.length === 0 ? 1 : 0
     })
     ElMessage.success('上传成功')
@@ -432,6 +521,7 @@ const beforeSkuUpload = (file) => {
     ElMessage.error('图片大小不能超过 2MB!')
     return false
   }
+  
   return true
 }
 
@@ -464,11 +554,17 @@ const submitSkuForm = async () => {
       stock: Number(skuForm.stock)
     }
     
-    console.log('提交SKU数据:', submitData)
     const res = await reqSaveSku(submitData)
     if (res.code === 200) {
       ElMessage.success('添加SKU成功')
       skuDialogVisible.value = false
+      
+      // 清空SKU表单和图片
+      skuFormRef.value.resetFields()
+      if (skuUploadRef.value) {
+        skuUploadRef.value.clearFiles()
+      }
+      skuForm.images = []
     }
   } catch (error) {
     console.error('添加SKU失败:', error)
@@ -491,6 +587,11 @@ const handleSkuDialogClose = () => {
     images: [],
     attrValues: []
   })
+  
+  // 清空SKU上传组件的文件列表
+  if (skuUploadRef.value) {
+    skuUploadRef.value.clearFiles()
+  }
 }
 
 // 处理属性值失去焦点
@@ -498,6 +599,30 @@ const handleAttrValueBlur = (value) => {
   if (!value.value_name.trim()) {
     ElMessage.warning('属性值不能为空')
   }
+}
+
+// 强制重新加载上传组件
+const forceReloadUploader = async () => {
+  if (!uploadRef.value) {
+    console.warn('上传组件引用不存在，无法重载');
+    return;
+  }
+  
+  if (!spuForm.images || spuForm.images.length === 0) {
+    return;
+  }
+  
+  // 直接设置文件列表
+  fileList.value = spuForm.images.map(img => ({
+    name: img.image_name || '图片',
+    url: img.image_url,
+    status: 'success'
+  }));
+};
+
+// 添加SPU对话框打开后的事件处理
+const handleDialogOpened = () => {
+  // 不做任何操作，避免重复设置引起抖动
 }
 
 onMounted(async () => {
@@ -594,6 +719,8 @@ onMounted(async () => {
       :title="dialogTitle"
       width="700px"
       @close="handleDialogClose"
+      @opened="handleDialogOpened"
+      :close-on-click-modal="false"
     >
       <el-form
         ref="formRef"
@@ -629,15 +756,23 @@ onMounted(async () => {
         <!-- SPU图片上传 -->
         <el-form-item label="SPU图片">
           <el-upload
+            ref="uploadRef"
             :action="uploadAction"
             :headers="uploadHeaders"
             list-type="picture-card"
             :on-success="handleUploadSuccess"
             :on-remove="handleRemove"
+            :on-preview="handlePictureCardPreview"
             :before-upload="beforeUpload"
+            :auto-upload="true"
+            :file-list="fileList"
+            :key="spuForm.spu_id || 'new'"
           >
             <el-icon><Plus /></el-icon>
           </el-upload>
+          <el-dialog v-model="dialogImageVisible" width="50%">
+            <img :src="dialogImageUrl" alt="Preview Image" style="max-width: 100%; margin: 0 auto; display: block;" />
+          </el-dialog>
         </el-form-item>
 
         <!-- 销售属性 -->
@@ -725,6 +860,7 @@ onMounted(async () => {
         </el-form-item>
         <el-form-item label="图片">
           <el-upload
+            ref="skuUploadRef"
             :action="skuUploadAction"
             :headers="skuUploadHeaders"
             list-type="picture-card"
@@ -737,7 +873,7 @@ onMounted(async () => {
             <el-icon><Plus /></el-icon>
           </el-upload>
           <el-dialog v-model="dialogImageVisible">
-            <img w-full :src="dialogImageUrl" alt="Preview Image" style="max-width: 100%" />
+            <img :src="dialogImageUrl" alt="Preview Image" style="max-width: 100%" />
           </el-dialog>
         </el-form-item>
         <el-form-item

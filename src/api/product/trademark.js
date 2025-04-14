@@ -15,7 +15,8 @@ export const reqAddOrUpdateTrademark = (data) => {
     return request({
         url: data.product_id ? `/product/baseTrademark/update` : `/product/baseTrademark/save`,
         method: 'post',
-        data
+        data,
+        timeout: 30000 // 增加超时时间
     })
 }
 
@@ -30,7 +31,7 @@ export const reqDeleteTrademark = (product_id) => {
 // 获取所有品牌列表（不分页）
 export const reqAllTrademark = () => {
     return request({
-        url: '/product/baseTrademark/getTrademarkList',
+        url: '/product/getAllTrademark',
         method: 'get'
     })
 }
@@ -51,7 +52,8 @@ export const uploadTrademarkImage = (data) => {
         data,
         headers: {
             'Content-Type': 'multipart/form-data'
-        }
+        },
+        timeout: 30000 // 增加超时时间
     })
 }
 
@@ -65,10 +67,20 @@ export const reqProductAttrRelation = (product_id) => {
 
 // 保存品牌属性关联
 export const reqSaveProductAttr = (data) => {
+    console.log('API调用参数:', JSON.stringify(data));
+    // 确保attr_ids是数组
+    if (!Array.isArray(data.attr_ids)) {
+        console.error('attr_ids必须是数组');
+        return Promise.reject(new Error('attr_ids必须是数组'));
+    }
+    
     return request({
-        url: '/product/attr',
+        url: `/product/${data.product_id}/attr/relation`,
         method: 'post',
-        data
+        data: {
+            category_id: data.category_id,
+            attrIds: data.attr_ids  // 确保参数名与后端一致
+        }
     })
 }
 

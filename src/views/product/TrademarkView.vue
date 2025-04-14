@@ -8,13 +8,8 @@
         </el-button>
         <!-- 搜索区域 -->
         <div class="search-box">
-          <el-input
-            v-model="searchKeyword"
-            placeholder="请输入品牌名称搜索"
-            clearable
-            @clear="handleSearch"
-            @keyup.enter="handleSearch"
-          >
+          <el-input v-model="searchKeyword" placeholder="请输入品牌名称搜索" clearable @clear="handleSearch"
+            @keyup.enter="handleSearch">
             <template #append>
               <el-button :icon="Search" @click="handleSearch" />
             </template>
@@ -23,31 +18,18 @@
       </div>
 
       <!-- 表格区域 -->
-      <el-table
-        v-loading="loading"
-        :data="tableData"
-        border
-        class="brand-table"
-      >
-        <el-table-column
-          type="index"
-          label="序号"
-          width="80"
-          align="center"
-        />
+      <el-table v-loading="loading" :data="tableData" border class="brand-table">
+        <el-table-column type="index" label="序号" width="80" align="center" />
         <el-table-column prop="tmName" label="品牌名称" min-width="150" />
         <el-table-column label="品牌Logo" min-width="150" align="center">
           <template #default="{ row }">
-            <el-image
-              :src="row.logoUrl"
-              :preview-src-list="[row.logoUrl]"
-              class="brand-logo"
-              fit="contain"
-              :initial-index="0"
-            >
+            <el-image :src="fixImageUrl(row.logoUrl)" :preview-src-list="[fixImageUrl(row.logoUrl)]" class="brand-logo" fit="contain"
+              :initial-index="0">
               <template #error>
                 <div class="image-error">
-                  <el-icon><Picture /></el-icon>
+                  <el-icon>
+                    <Picture />
+                  </el-icon>
                   <span>加载失败</span>
                 </div>
               </template>
@@ -58,24 +40,9 @@
         <el-table-column prop="updated_at" label="更新时间" min-width="150" align="center" />
         <el-table-column label="操作" width="250" align="center">
           <template #default="{ row }">
-            <el-button
-              type="primary"
-              :icon="Edit"
-              circle
-              @click="updateTrademark(row)"
-            />
-            <el-button
-              type="success"
-              :icon="SetUp"
-              circle
-              @click="showAttrDialog(row)"
-              title="关联属性"
-            />
-            <el-popconfirm
-              :title="`确定删除 ${row.tmName} 品牌吗？`"
-              width="250px"
-              @confirm="deleteTrademark(row)"
-            >
+            <el-button type="primary" :icon="Edit" circle @click="updateTrademark(row)" />
+            <el-button type="success" :icon="SetUp" circle @click="showAttrDialog(row)" title="关联属性" />
+            <el-popconfirm :title="`确定删除 ${row.tmName} 品牌吗？`" width="250px" @confirm="deleteTrademark(row)">
               <template #reference>
                 <el-button type="danger" :icon="Delete" circle />
               </template>
@@ -85,54 +52,25 @@
       </el-table>
 
       <!-- 分页器 -->
-      <el-pagination
-        v-model:current-page="currentPage"
-        v-model:page-size="pageSize"
-        :page-sizes="[5, 10, 15, 20]"
-        :total="total"
-        class="pagination"
-        background
-        layout="total, sizes, prev, pager, next, jumper"
-        @size-change="handleSizeChange"
-        @current-change="handleCurrentChange"
-      />
+      <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20]"
+        :total="total" class="pagination" background layout="total, sizes, prev, pager, next, jumper"
+        @size-change="handleSizeChange" @current-change="handleCurrentChange" />
     </el-card>
 
     <!-- 添加/编辑品牌对话框 -->
-    <el-dialog
-      v-model="dialogFormVisible"
-      :title="dialogTitle"
-      width="500px"
-      @close="handleDialogClose"
-    >
-      <el-form
-        ref="formRef"
-        :model="trademarkParams"
-        :rules="rules"
-        label-width="100px"
-      >
+    <el-dialog v-model="dialogFormVisible" :title="dialogTitle" width="500px" @close="handleDialogClose">
+      <el-form ref="formRef" :model="trademarkParams" :rules="rules" label-width="100px">
         <el-form-item label="品牌名称" prop="tmName">
-          <el-input
-            v-model="trademarkParams.tmName"
-            placeholder="请输入品牌名称"
-            clearable
-          />
+          <el-input v-model="trademarkParams.tmName" placeholder="请输入品牌名称" clearable />
         </el-form-item>
         <el-form-item label="品牌Logo" prop="logoUrl">
-          <el-upload
-            class="logo-uploader"
-            :show-file-list="false"
-            :before-upload="beforeAvatarUpload"
-            :http-request="customUpload"
-            :on-error="handleUploadError"
-          >
-            <img
-              v-if="trademarkParams.logoUrl"
-              :src="trademarkParams.logoUrl"
-              class="uploaded-logo"
-            />
+          <el-upload class="logo-uploader" :show-file-list="false" :before-upload="beforeAvatarUpload"
+            :http-request="customUpload" :on-error="handleUploadError">
+            <img v-if="trademarkParams.logoUrl" :src="fixImageUrl(trademarkParams.logoUrl)" class="uploaded-logo" />
             <div v-else class="upload-placeholder">
-              <el-icon class="upload-icon"><Plus /></el-icon>
+              <el-icon class="upload-icon">
+                <Plus />
+              </el-icon>
               <span>点击上传Logo</span>
             </div>
           </el-upload>
@@ -143,57 +81,32 @@
       </el-form>
       <template #footer>
         <el-button @click="cancel">取 消</el-button>
-        <el-button
-          type="primary"
-          :loading="submitLoading"
-          @click="confirm"
-        >
+        <el-button type="primary" :loading="submitLoading" @click="confirm">
           确 定
         </el-button>
       </template>
     </el-dialog>
 
     <!-- 添加属性关联对话框 -->
-    <el-dialog
-      v-model="attrDialogVisible"
-      title="关联属性"
-      width="600px"
-    >
+    <el-dialog v-model="attrDialogVisible" title="关联属性" width="600px" @close="handleAttrDialogClose">
       <div class="attr-dialog-content">
         <el-form :inline="true" class="attr-form">
           <el-form-item label="选择分类：">
-            <el-select
-              v-model="selectedCategory"
-              placeholder="请选择分类"
-              clearable
-              @change="handleCategoryChange"
-              style="width: 300px"
-            >
-              <el-option
-                v-for="item in categoryOptions"
-                :key="item.id"
-                :label="item.name"
-                :value="item.id"
-              />
+            <el-select v-model="selectedCategory" placeholder="请选择分类" clearable @change="handleCategoryChange"
+              style="width: 300px">
+              <el-option v-for="item in categoryOptions" :key="item.id" :label="item.name" :value="item.id" />
             </el-select>
           </el-form-item>
         </el-form>
 
-        <el-table
-          v-if="selectedCategory"
-          v-loading="attrLoading"
-          :data="attrList"
-          border
-        >
+        <el-table v-if="selectedCategory" v-loading="attrLoading" :data="attrList" border row-key="attr_id"
+          ref="attrTableRef" @selection-change="handleSelectionChange">
           <el-table-column type="selection" width="55" />
-          <el-table-column prop="attrName" label="属性名称" />
+          <el-table-column prop="attr_name" label="属性名称" />
           <el-table-column label="属性值">
             <template #default="{ row }">
-              <el-tag
-                v-for="value in row.attrValues"
-                :key="value"
-                class="attr-tag"
-              >
+              <el-tag v-for="value in (Array.isArray(row.attr_values) ? row.attr_values : [])" :key="value"
+                class="attr-tag">
                 {{ value }}
               </el-tag>
             </template>
@@ -201,7 +114,7 @@
         </el-table>
       </div>
       <template #footer>
-        <el-button @click="attrDialogVisible = false">取 消</el-button>
+        <el-button @click="closeAttrDialog">取 消</el-button>
         <el-button type="primary" @click="saveAttrRelation">确 定</el-button>
       </template>
     </el-dialog>
@@ -209,9 +122,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, Search, Picture, SetUp } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Search, Picture, SetUp, Loading } from '@element-plus/icons-vue'
 import {
   reqHasTrademarkAPI,
   reqAddOrUpdateTrademark,
@@ -235,6 +148,7 @@ const dialogFormVisible = ref(false)
 const dialogTitle = ref('添加品牌')
 const submitLoading = ref(false)
 const formRef = ref(null)
+const attrTableRef = ref(null)
 
 // 表单数据
 const trademarkParams = reactive({
@@ -295,6 +209,7 @@ const handleSearch = () => {
 // 添加品牌
 const addTrademark = () => {
   dialogFormVisible.value = true
+  dialogTitle.value = '添加品牌'
   // 重置表单数据
   Object.assign(trademarkParams, {
     product_id: '',
@@ -308,11 +223,13 @@ const addTrademark = () => {
 // 编辑品牌
 const updateTrademark = (row) => {
   dialogFormVisible.value = true
+  dialogTitle.value = '编辑品牌'
+  
   // 填充表单数据
   Object.assign(trademarkParams, {
     product_id: row.product_id,
     tmName: row.tmName,
-    logoUrl: row.logoUrl,
+    logoUrl: row.logoUrl, // 保存原始URL
     created_at: row.created_at,
     updated_at: row.updated_at
   })
@@ -341,12 +258,16 @@ const deleteTrademark = async (row) => {
 // 自定义上传
 const customUpload = async ({ file }) => {
   try {
+    submitLoading.value = true
+    
     const formData = new FormData()
     formData.append('file', file)
+    
     const res = await uploadTrademarkImage(formData)
     
     if (res.code === 200 && res.data) {
-      trademarkParams.logoUrl = `http://localhost:3000${res.data}`
+      // 只保存服务器返回的路径，不做任何修改
+      trademarkParams.logoUrl = res.data
       ElMessage.success('上传成功')
     } else {
       ElMessage.error(res.message || '上传失败')
@@ -354,6 +275,8 @@ const customUpload = async ({ file }) => {
   } catch (error) {
     console.error('上传失败:', error)
     ElMessage.error('上传失败，请重试')
+  } finally {
+    submitLoading.value = false
   }
 }
 
@@ -381,23 +304,30 @@ const handleUploadError = () => {
 // 确认提交
 const confirm = async () => {
   if (!formRef.value) return
-  
-  // 添加表单验证
+
   await formRef.value.validate(async (valid) => {
     if (!valid) {
       ElMessage.error('请完善表单信息')
       return
     }
-    
+
     try {
       submitLoading.value = true
-      console.log("trademarkParams", trademarkParams)
-      await reqAddOrUpdateTrademark(trademarkParams)
-      ElMessage.success(trademarkParams.product_id ? '编辑成功' : '添加成功')
-      dialogFormVisible.value = false
-      getTrademarkList()
+      
+      // 直接使用trademarkParams，保持与服务器数据格式一致
+      const res = await reqAddOrUpdateTrademark(trademarkParams)
+      
+      if (res.code === 200) {
+        ElMessage.success(trademarkParams.product_id ? '编辑成功' : '添加成功')
+        dialogFormVisible.value = false
+        // 重新获取列表显示新数据
+        getTrademarkList()
+      } else {
+        ElMessage.error(res.message || '操作失败')
+      }
     } catch (error) {
       console.error('操作失败:', error)
+      ElMessage.error('操作失败，请重试')
     } finally {
       submitLoading.value = false
     }
@@ -411,7 +341,20 @@ const cancel = () => {
 
 // 对话框关闭时的处理
 const handleDialogClose = () => {
+  // 重置表单验证状态
   formRef.value?.resetFields()
+  
+  // 清空表单数据
+  Object.assign(trademarkParams, {
+    product_id: '',
+    tmName: '',
+    logoUrl: '',
+    created_at: '',
+    updated_at: ''
+  })
+  
+  // 重置加载状态
+  submitLoading.value = false
 }
 
 // 添加属性关联相关的状态
@@ -434,55 +377,259 @@ const getCategoryList = async () => {
 }
 
 const getAttrList = async (categoryId) => {
+  if (!categoryId) {
+    attrList.value = []
+    return
+  }
+
   try {
     attrLoading.value = true
+
+    // 发起请求
     const res = await reqAttrList(categoryId)
-    attrList.value = res.data
+
+    // 确保对话框仍然打开
+    if (!attrDialogVisible.value) return
+
+    // 处理属性值
+    attrList.value = res.data.records.map(item => ({
+      ...item,
+      attr_values: Array.isArray(item.attr_values) ? item.attr_values :
+        (item.attr_values ? (typeof item.attr_values === 'string' ? item.attr_values.split(',') : [item.attr_values]) : [])
+    }))
+
+    return attrList.value
   } catch (error) {
     console.error('获取属性列表失败:', error)
+    // 确保对话框仍然打开
+    if (attrDialogVisible.value) {
+      ElMessage.error('获取属性列表失败')
+    }
+    return []
   } finally {
-    attrLoading.value = false
+    // 确保对话框仍然打开后再设置loading状态
+    if (attrDialogVisible.value) {
+      attrLoading.value = false
+    }
   }
 }
 
 // 显示属性关联对话框的方法
 const showAttrDialog = async (row) => {
-  console.log("row", row);
-  currentProduct.value = row
-  attrDialogVisible.value = true
-  await getCategoryList()
-  // 获取已关联的属性
   try {
-    const res = await reqProductAttrRelation(row.product_id)
-    // 设置已关联属性的选中状态
-    selectedAttrs.value = res.data.map(item => item.attr_id)
-    console.log("selectedAttrs", selectedAttrs.value);
+    // 重置状态
+    currentProduct.value = row
+    attrDialogVisible.value = true
+    selectedAttrs.value = []
+
+    // 先获取分类列表
+    await getCategoryList()
+    if (!categoryOptions.value || categoryOptions.value.length === 0) {
+      ElMessage.warning('请先添加商品分类')
+      return
+    }
+
+    // 获取已关联的属性
+    try {
+      const res = await reqProductAttrRelation(row.product_id)
+      console.log('获取属性关联结果:', res)
+
+      if (res.code === 200 && res.data && res.data.length > 0) {
+        // 提取选中的属性ID
+        const selectedIds = res.data
+          .filter(item => item.isSelected)
+          .map(item => item.attr_id)
+
+        // 设置到数组中
+        selectedAttrs.value = selectedIds
+        console.log('已选中的属性ID:', selectedAttrs.value)
+
+        // 找到属性所在的分类（如果有选中的属性）
+        if (selectedAttrs.value.length > 0) {
+          const selectedItem = res.data.find(item => item.isSelected)
+          if (selectedItem) {
+            selectedCategory.value = selectedItem.category_id
+          } else {
+            // 默认选择第一个分类
+            selectedCategory.value = categoryOptions.value[0].id
+          }
+        } else {
+          // 默认选择第一个分类
+          selectedCategory.value = categoryOptions.value[0].id
+        }
+      } else {
+        // 默认选择第一个分类
+        selectedCategory.value = categoryOptions.value[0].id
+      }
+
+      // 无论如何，都加载当前选中分类的属性列表
+      await getAttrList(selectedCategory.value)
+
+      // 使用nextTick确保DOM已更新
+      await nextTick()
+
+      // 再次检查对话框是否仍然打开
+      if (!attrDialogVisible.value) return
+
+      // 设置选中状态
+      if (attrTableRef.value) {
+        // 先清除所有选择
+        attrTableRef.value.clearSelection()
+
+        console.log('设置表格选中，当前属性列表:', attrList.value)
+        console.log('需要选中的属性IDs:', selectedAttrs.value)
+
+        // 遍历属性列表设置选中状态
+        attrList.value.forEach(attr => {
+          if (selectedAttrs.value.includes(attr.attr_id)) {
+            console.log('设置选中属性:', attr.attr_name, attr.attr_id)
+            attrTableRef.value.toggleRowSelection(attr, true)
+          }
+        })
+      }
+    } catch (error) {
+      console.error('获取关联属性失败:', error)
+      ElMessage.error('获取关联属性失败')
+      // 默认选择第一个分类并加载其属性
+      selectedCategory.value = categoryOptions.value[0].id
+      await getAttrList(selectedCategory.value)
+    }
   } catch (error) {
-    console.error('获取关联属性失败:', error)
+    console.error('打开属性关联对话框失败:', error)
+    ElMessage.error('打开属性关联对话框失败')
   }
 }
 
 // 分类变化处理方法
-const handleCategoryChange = (categoryId) => {
-  if (categoryId) {
-    getAttrList(categoryId)
-  } else {
+const handleCategoryChange = async (categoryId) => {
+  if (!categoryId) {
     attrList.value = []
+    return
   }
+
+  try {
+    attrLoading.value = true
+    const res = await reqAttrList(categoryId)
+
+    // 如果对话框已经关闭，则不再继续处理
+    if (!attrDialogVisible.value) return
+
+    // 处理属性数据
+    attrList.value = res.data.records.map(item => ({
+      ...item,
+      attr_values: Array.isArray(item.attr_values) ? item.attr_values :
+        (item.attr_values ? (typeof item.attr_values === 'string' ? item.attr_values.split(',') : [item.attr_values]) : [])
+    }))
+
+    // 等待DOM更新完成
+    await nextTick()
+
+    // 再次检查对话框是否仍然打开
+    if (!attrDialogVisible.value) return
+
+    // 设置选中状态
+    if (attrTableRef.value) {
+      // 先清除所有选中
+      attrTableRef.value.clearSelection()
+
+      // 设置新分类下的选中状态
+      attrList.value.forEach(attr => {
+        if (selectedAttrs.value.includes(attr.attr_id)) {
+          attrTableRef.value.toggleRowSelection(attr, true)
+        }
+      })
+    }
+  } catch (error) {
+    console.error('获取属性列表失败:', error)
+    if (attrDialogVisible.value) {
+      ElMessage.error('获取属性列表失败')
+    }
+  } finally {
+    if (attrDialogVisible.value) {
+      attrLoading.value = false
+    }
+  }
+}
+
+// 处理表格选择变化
+const handleSelectionChange = (selection) => {
+  console.log('选择变化:', selection);
+  selectedAttrs.value = selection.map(item => item.attr_id);
+  console.log('当前选中属性IDs:', selectedAttrs.value);
 }
 
 // 保存属性关联的方法
 const saveAttrRelation = async () => {
+  // 参数验证
+  if (!currentProduct.value || !currentProduct.value.product_id) {
+    ElMessage.error('未找到当前产品信息')
+    return
+  }
+
+  if (!selectedCategory.value) {
+    ElMessage.error('请选择分类')
+    return
+  }
+
+  if (!selectedAttrs.value.length) {
+    ElMessage.warning('请选择要关联的属性')
+    return
+  }
+
   try {
-    await reqSaveProductAttr({
+    // 构建请求数据
+    const data = {
       product_id: currentProduct.value.product_id,
-      attrIds: selectedAttrs.value
-    })
-    ElMessage.success('关联属性成功')
-    attrDialogVisible.value = false
+      category_id: selectedCategory.value,
+      attr_ids: selectedAttrs.value
+    }
+
+    console.log('提交的数据:', JSON.stringify(data))
+
+    // 发送请求
+    const res = await reqSaveProductAttr(data)
+    console.log('保存属性关联响应:', res)
+
+    if (res.code === 200) {
+      ElMessage.success('关联属性成功')
+      // 直接关闭对话框
+      attrDialogVisible.value = false
+
+      // 清理状态
+      attrList.value = []
+      selectedAttrs.value = []
+      selectedCategory.value = ''
+      currentProduct.value = null
+    } else {
+      ElMessage.error(res.message || '关联属性失败')
+    }
   } catch (error) {
     console.error('关联属性失败:', error)
+    ElMessage.error('保存失败，请重试')
   }
+}
+
+// 关闭属性对话框
+const closeAttrDialog = () => {
+  attrDialogVisible.value = false
+}
+
+// 属性对话框关闭事件处理
+const handleAttrDialogClose = () => {
+  // 清理状态，避免内存泄漏
+  attrList.value = []
+  selectedAttrs.value = []
+  selectedCategory.value = ''
+  currentProduct.value = null
+}
+
+// 工具函数 - 处理图片URL
+const fixImageUrl = (url) => {
+  if (!url) return '';
+  // 如果已经是完整URL，直接返回
+  if (url.startsWith('http')) return url;
+  // 否则添加域名前缀
+  return `http://localhost:3000${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
 onMounted(() => {
@@ -531,11 +678,15 @@ onMounted(() => {
   }
 
   .logo-uploader {
+    position: relative;
+
     .uploaded-logo {
       width: 178px;
       height: 178px;
       display: block;
       object-fit: contain;
+      border: 1px dashed #d9d9d9;
+      border-radius: 6px;
     }
 
     .upload-placeholder {
@@ -560,6 +711,20 @@ onMounted(() => {
         margin-bottom: 8px;
       }
     }
+    
+    .upload-loading {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.7);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
   }
 
   .upload-tip {
@@ -571,6 +736,7 @@ onMounted(() => {
   // 添加加载动画样式
   .uploading {
     position: relative;
+
     &::after {
       content: '';
       position: absolute;
@@ -621,11 +787,17 @@ onMounted(() => {
   .attr-form {
     margin-bottom: 20px;
   }
-  
+
   .attr-tag {
     margin-right: 8px;
     margin-bottom: 4px;
   }
 }
-</style>
 
+.debug-info {
+  margin-top: 5px;
+  color: #909399;
+  font-size: 12px;
+  word-break: break-all;
+}
+</style>
