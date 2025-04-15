@@ -340,10 +340,13 @@ const hasPermission = (roles) => {
 
 //判断用户是否有权限点击按钮
 const isAuthorization = () => {
-  const currentUserRoles = userStore.userInfo.roles || []
+  const currentUserInfo = userStore.userInfo;
+  
+  const currentUserRoles = currentUserInfo.roles || [];
+  
   const currentUserHighestRoleId = currentUserRoles.length > 0
     ? Math.min(...currentUserRoles.map(role => parseInt(role.role_id)))
-    : 999
+    : 999;
 
   if (currentUserHighestRoleId > 2) {
     ElMessage({
